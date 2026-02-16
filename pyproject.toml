@@ -1,2 +1,46 @@
+[tool.poetry]
+name = "pentest-toolbox"
+version = "0.1.0"
+description = "Toolbox de pentest modulaire avec Nmap, Hydra et OpenVAS"
+authors = ["Florian <florian@example.com>"]
+readme = "README.md"
+packages = [{ include = "toolbox" }]
+
 [tool.poetry.dependencies]
+python = "^3.11"
+
+# API
+fastapi = "^0.115.0"
+uvicorn = "^0.30.0"
+
+# Task queue
+celery = "^5.4.0"
+redis = "^5.0.0"
+
+# Database
+psycopg2-binary = "^2.9.9"
+sqlalchemy = "^2.0.0"
+
+# Storage
+minio = "^7.2.0"
+
+# OpenVAS
 python-gvm = "^23.0.0"
+
+# Utils
+python-dotenv = "^1.0.1"
+pydantic = "^2.7.0"
+
+# Reporting
+jinja2 = "^3.1.4"
+matplotlib = "^3.9.0"
+
+[tool.poetry.group.dev.dependencies]
+
+pytest = "^8.2.0"
+black = "^24.4.0"
+flake8 = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
