@@ -1,2 +1,2 @@
 ./deployment/docker/openvas/openvas.env# OpenVAS environment variables
-.env.example
+.env
