@@ -1,0 +1,2 @@
+[tool.poetry.dependencies]
+python-gvm = "^23.0.0"
