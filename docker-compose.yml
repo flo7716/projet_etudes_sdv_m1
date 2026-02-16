@@ -56,8 +56,26 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_data:/data
+      - minio_data:/data 
+
+  openvas:
+    image: greenbone/community-edition:stable
+    container_name: toolbox_openvas
+
+    ports:
+      - "9392:9392"
+
+    volumes:
+      - openvas_data:/data
+
+    environment:
+      - USERNAME=admin
+      - PASSWORD=admin
+
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:
   minio_data:
+  openvas_data:
