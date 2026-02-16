@@ -6,5 +6,5 @@ celery = Celery(
     broker=os.getenv("REDIS_URL", "redis://redis:6379/0"),
     backend=os.getenv("REDIS_URL", "redis://redis:6379/0")
 )
-
+print("ade")
 celery.autodiscover_tasks(["toolbox.workers.tasks"])
