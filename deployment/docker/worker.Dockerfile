@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     netcat-openbsd \
     iputils-ping \
     curl \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Installer poetry
