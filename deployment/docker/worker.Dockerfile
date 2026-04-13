@@ -2,20 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Installer dépendances système
+# Installer outils + git
 RUN apt-get update && apt-get install -y \
     nmap \
     hydra \
-    netcat-openbsd \
-    iputils-ping \
-    curl \
-    openssh-client \
+    git \
+    wget \
+    unzip \
+    wordlists \
     && rm -rf /var/lib/apt/lists/*
 
-# Installer poetry
+# ========================
+# INSTALL SECLISTS
+# ========================
+RUN git clone https://github.com/danielmiessler/SecLists.git /wordlists/SecLists
+
+# ========================
+# ROCKYOU (souvent compressé)
+# ========================
+RUN gzip -d /usr/share/wordlists/rockyou.txt.gz \
+    && cp /usr/share/wordlists/rockyou.txt /wordlists/rockyou.txt
+
+# ========================
+# POETRY
+# ========================
 RUN pip install poetry
 
-COPY ../../pyproject.toml poetry.lock ./
+COPY pyproject.toml poetry.lock ./
 
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-root
