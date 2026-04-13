@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     unzip \
-    wordlists \
     && rm -rf /var/lib/apt/lists/*
 
 # ========================
@@ -20,8 +19,8 @@ RUN git clone https://github.com/danielmiessler/SecLists.git /wordlists/SecLists
 # ========================
 # ROCKYOU (souvent compressé)
 # ========================
-RUN gzip -d /usr/share/wordlists/rockyou.txt.gz \
-    && cp /usr/share/wordlists/rockyou.txt /wordlists/rockyou.txt
+# rockyou
+RUN wget https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt -O /wordlists/rockyou.txt
 
 # ========================
 # POETRY
