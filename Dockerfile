@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     hydra \
     git \
     wget \
+    nikto \
+    gobuster \
+    seclists \
     && rm -rf /var/lib/apt/lists/*
 
 # wordlist
