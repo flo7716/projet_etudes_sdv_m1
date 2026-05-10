@@ -9,17 +9,33 @@ def parse_nmap(xml_output):
     results = []
 
     for port in root.findall(".//port"):
-        port_id = port.get("portid")
+
         state = port.find("state").get("state")
-        service = port.find("service").get("name")
+
+        # garder uniquement ports ouverts
+        if state != "open":
+            continue
+
+        port_id = port.get("portid")
+
+        service_element = port.find("service")
+
+        service = (
+            service_element.get("name")
+            if service_element is not None
+            else "unknown"
+        )
 
         results.append({
             "port": port_id,
-            "state": state,
             "service": service
         })
 
-    return results
+    return {
+        "open_ports_count": len(results),
+        "open_ports": results
+    }
+
 
 def run_nmap(target):
 
@@ -28,7 +44,7 @@ def run_nmap(target):
         "-sV",
         "-sC",
         "-O",
-        "-oX", "-",   # sortie XML
+        "-oX", "-",
         target
     ]
 
@@ -38,4 +54,17 @@ def run_nmap(target):
         text=True
     )
 
-    return parse_nmap(result.stdout)
+    # debug si erreur nmap
+    if result.returncode != 0:
+        return {
+            "error": result.stderr
+        }
+
+    try:
+        return parse_nmap(result.stdout)
+
+    except ET.ParseError:
+        return {
+            "error": "Impossible de parser le XML Nmap",
+            "raw_output": result.stdout[:500]
+        }

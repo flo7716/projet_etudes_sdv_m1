@@ -9,7 +9,6 @@ router = APIRouter()
 def home():
     return {"message": "Pentest Toolbox"}
 
-
 @router.get("/nmap")
 def nmap(target: str):
     return run_nmap(target)
