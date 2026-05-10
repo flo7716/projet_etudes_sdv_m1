@@ -1,23 +1,31 @@
-FROM python:3.11-slim
+FROM kalilinux/kali-rolling
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Mise à jour
+RUN apt update && apt install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
     nmap \
     hydra \
-    git \
-    wget \
-    nikto \
+    john \
     gobuster \
+    ffuf \
+    sqlmap \
+    nikto \
+    whatweb \
     seclists \
-    && rm -rf /var/lib/apt/lists/*
+    metasploit-framework \
+    curl \
+    git \
+    wget
 
-# wordlist
-RUN mkdir /wordlists \
-    && wget https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt -O /wordlists/rockyou.txt
+# FastAPI
+RUN pip3 install fastapi uvicorn python-multipart
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY . .
 
-COPY app ./app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
