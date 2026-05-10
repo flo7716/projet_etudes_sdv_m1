@@ -1,5 +1,11 @@
 services:
+
   api:
     build: .
     ports:
       - "8000:8000"
+
+  dvwa:
+    image: vulnerables/web-dvwa
+    ports:
+      - "8080:80"
