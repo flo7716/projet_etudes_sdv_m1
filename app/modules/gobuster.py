@@ -3,13 +3,16 @@ import subprocess
 
 def run_gobuster(target):
 
+    # ajoute http:// automatiquement
+    if not target.startswith("http"):
+        target = f"http://{target}"
+
     command = [
         "gobuster",
         "dir",
-        "-u",
-        target,
-        "-w",
-        "/usr/share/wordlists/dirb/common.txt"
+        "-u", target,
+        "-w", "/usr/share/wordlists/dirb/common.txt",
+        "-q"
     ]
 
     result = subprocess.run(
@@ -19,5 +22,8 @@ def run_gobuster(target):
     )
 
     return {
-        "output": result.stdout
+        "target": target,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "returncode": result.returncode
     }

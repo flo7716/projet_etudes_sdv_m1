@@ -13,6 +13,7 @@ RUN apt update && apt install -y \
     hydra \
     john \
     gobuster \
+    dirb-wordlists \
     ffuf \
     sqlmap \
     nikto \
