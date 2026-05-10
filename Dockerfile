@@ -13,7 +13,7 @@ RUN apt update && apt install -y \
     hydra \
     john \
     gobuster \
-    dirb \
+    seclists \
     ffuf \
     sqlmap \
     nikto \
