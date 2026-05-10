@@ -9,11 +9,15 @@ router = APIRouter()
 def home():
     return {"message": "Pentest Toolbox"}
 
+
 @router.get("/nmap")
-def nmap(target: str):
-    return run_nmap(target)
+def nmap_scan(target: str):
+
+    result = run_nmap(target)
+
+    return result
 
 
 @router.get("/hydra")
-def hydra(target: str):
+def hydra_scan(target: str):
     return run_hydra(target)
