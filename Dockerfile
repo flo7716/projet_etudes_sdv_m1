@@ -21,10 +21,13 @@ RUN apt update && apt install -y \
     metasploit-framework \
     curl \
     git \
-    wget
+    wget \
+    python3-pydantic \
+    python3-requests \
+    python3-fastapi \
+    python3-uvicorn \
+    python3-python-multipart
 
-# FastAPI
-RUN pip3 install fastapi uvicorn python-multipart
 
 COPY . .
 
