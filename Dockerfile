@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Mise à jour
+# Outils pentest + Python
 RUN apt update && apt install -y \
     python3 \
     python3-pip \
@@ -21,13 +21,17 @@ RUN apt update && apt install -y \
     metasploit-framework \
     curl \
     git \
-    wget \
-    python3-pydantic \
-    python3-requests \
-    python3-fastapi \
-    python3-uvicorn \
-    python3-python-multipart
+    wget
 
+# Créer environnement virtuel
+RUN python3 -m venv /opt/venv
+
+# Ajouter venv au PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Installer FastAPI dans le venv
+RUN pip install --upgrade pip
+RUN pip install fastapi uvicorn python-multipart
 
 COPY . .
 
