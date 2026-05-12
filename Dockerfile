@@ -27,11 +27,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --break-system-packages -r requirements.txt
 
-# Frontend
-COPY frontend ./frontend
-
-RUN cd frontend && npm install && npm run build
-
 # API
 COPY app ./app
 
