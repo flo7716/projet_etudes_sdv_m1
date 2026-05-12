@@ -10,6 +10,9 @@ RUN apt update && apt install -y \
     nmap \
     hydra \
     gobuster \
+    dirb \
+    ffuf \
+    sqlmap \
     nikto \
     dirb \
     curl \
