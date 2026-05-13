@@ -21,13 +21,15 @@ def parse_john(output):
     }
 
 
-def run_john(hash_file, wordlist):
+def run_john(hash_file, wordlist, options=""):
 
     command = [
         "john",
         "--wordlist=" + wordlist,
         hash_file
     ]
+    if options:
+        command.extend(options.split())
 
     result = subprocess.run(
         command,

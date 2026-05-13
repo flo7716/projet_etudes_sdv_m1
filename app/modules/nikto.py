@@ -21,13 +21,15 @@ def parse_nikto(output):
     }
 
 
-def run_nikto(target):
+def run_nikto(target, options=""):
 
     command = [
         "nikto",
         "-h",
         target
     ]
+    if options:
+        command.extend(options.split())
 
     result = subprocess.run(
         command,

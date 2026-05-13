@@ -20,18 +20,23 @@ def parse_hydra(output):
         "cracked_passwords": results
     }
 
-def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt"):
+def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", options=""):
+
+    command = [
+        "hydra",
+        "-l", user,
+        "-P", passlist,
+        target,
+        "ssh"
+    ]
+    if options:
+        command.extend(options.split())
 
     result = subprocess.run(
-        [
-            "hydra",
-            "-l", user,
-            "-P", passlist,
-            target,
-            "ssh"
-        ],
+        command,
         capture_output=True,
         text=True
     )
 
     return parse_hydra(result.stdout)
+

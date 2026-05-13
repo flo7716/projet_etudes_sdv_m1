@@ -17,7 +17,7 @@ def parse_gobuster(output):
 
 
 
-def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt"):
+def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt", options=""):
 
     # ajoute http:// automatiquement
     if not target.startswith("http"):
@@ -30,6 +30,8 @@ def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt"):
         "-w", wordlist,
         "-q"
     ]
+    if options:
+        command.extend(options.split())
 
     result = subprocess.run(
         command,
