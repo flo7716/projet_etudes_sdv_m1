@@ -30,14 +30,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --break-system-packages -r requirements.txt
 
-# Setup OpenVAS
-RUN apt install -y openvas \
-    && greenbone-nvt-sync \
-    && openvas-setup \
-    && openvas-start \
-    && openvas-client -u admin -w admin
-    
-
 # API
 COPY app ./app
 
