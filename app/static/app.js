@@ -10,6 +10,39 @@ const appendOutput = (text, type = "info") => {
   outputArea.scrollTop = outputArea.scrollHeight;
 };
 
+const formatResult = (data) => {
+  if (!data || typeof data !== "object") {
+    return String(data);
+  }
+
+  if (data.output) {
+    return data.output.trim() || "(no output)";
+  }
+
+  if (data.stdout || data.stderr) {
+    let formatted = "";
+    if (data.target) formatted += `Target: ${data.target}\n`;
+    if (data.stdout) formatted += `\n--- STDOUT ---\n${data.stdout.trim()}\n`;
+    if (data.stderr) formatted += `\n--- STDERR ---\n${data.stderr.trim()}\n`;
+    formatted += `\nreturncode: ${data.returncode ?? "unknown"}`;
+    return formatted.trim();
+  }
+
+  if (Array.isArray(data.open_ports)) {
+    const count = data.open_ports_count ?? data.open_ports.length;
+    let formatted = `Open ports: ${count}`;
+    if (data.open_ports.length > 0) {
+      formatted += "\n\nPORT\tSERVICE\n";
+      data.open_ports.forEach((port) => {
+        formatted += `${port.port}\t${port.service}\n`;
+      });
+    }
+    return formatted;
+  }
+
+  return JSON.stringify(data, null, 2);
+};
+
 const runScan = async (endpoint) => {
   const target = targetInput.value.trim();
   const hashFile = hashInput.value.trim();
@@ -44,7 +77,7 @@ const runScan = async (endpoint) => {
     }
 
     const data = await response.json();
-    appendOutput(JSON.stringify(data, null, 2));
+    appendOutput(formatResult(data));
   } catch (error) {
     appendOutput(error.message, "error");
   }
