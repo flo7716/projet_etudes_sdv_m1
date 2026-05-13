@@ -1,4 +1,20 @@
 import subprocess
+import xml.etree.ElementTree as ET
+
+def parse_gobuster(output):
+    lines = output.splitlines()
+
+    results = []
+
+    for line in lines:
+        if line.startswith("/"):
+            results.append(line)
+
+    return {
+        "found_paths_count": len(results),
+        "found_paths": results
+    }
+
 
 
 def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt"):
@@ -21,9 +37,4 @@ def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt"):
         text=True
     )
 
-    return {
-        "target": target,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-        "returncode": result.returncode
-    }
+    return parse_gobuster(result.stdout)

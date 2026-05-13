@@ -1,4 +1,24 @@
 import subprocess
+import xml.etree.ElementTree as ET
+
+def parse_nikto(output):
+
+    results = []
+
+    for line in output.splitlines():
+
+        if line.startswith("+") or line.startswith("-") or line.startswith("|"):
+            continue
+
+        if line.strip() == "":
+            continue
+
+        results.append(line.strip())
+
+    return {
+        "vulnerabilities_count": len(results),
+        "vulnerabilities": results
+    }
 
 
 def run_nikto(target):
@@ -15,6 +35,4 @@ def run_nikto(target):
         text=True
     )
 
-    return {
-        "output": result.stdout
-    }
+    return parse_nikto(result.stdout)
