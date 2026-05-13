@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from app.modules.nmap import run_nmap
 from app.modules.hydra import run_hydra
 from app.modules.john import run_john
+from app.modules.openvas import run_openvas
 
 router = APIRouter()
 
@@ -24,6 +25,11 @@ def hydra_scan(target: str, user: str = "root", passlist: str = "/usr/share/word
 @router.get("/john")
 def john_scan(hash_file: str, wordlist: str = "/usr/share/john/password.lst"):
     return run_john(hash_file, wordlist)
+
+@router.get("/openvas")
+def openvas_scan(target: str):
+    from app.modules.openvas import run_openvas
+    return run_openvas(target)
 
 @router.get("/nikto")
 def nikto_scan(target: str):

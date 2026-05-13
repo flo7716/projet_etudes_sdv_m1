@@ -84,6 +84,10 @@ const showFieldsForTool = (tool) => {
       fieldGroups.hydraPasslist.classList.remove("hidden");
       runButton.textContent = "Run Hydra";
       break;
+    case "openvas":
+      fieldGroups.target.classList.remove("hidden");
+      runButton.textContent = "Run OpenVAS";
+      break;
     case "john":
       fieldGroups.johnHash.classList.remove("hidden");
       fieldGroups.johnWordlist.classList.remove("hidden");
@@ -107,6 +111,7 @@ const runScan = async () => {
 
   const endpoints = {
     nmap: "/nmap",
+    openvas: "/openvas",
     nikto: "/nikto",
     gobuster: "/gobuster",
     hydra: "/hydra",
