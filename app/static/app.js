@@ -69,7 +69,7 @@ const runScan = async (endpoint) => {
   }
 
   try {
-    const response = await fetch(`${endpoint}?${params.toString()}`);
+    const response = await fetch(`/api${endpoint}?${params.toString()}`);
     if (!response.ok) {
       const body = await response.text();
       appendOutput(`Server error: ${response.status} ${body}`, "error");

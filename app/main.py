@@ -18,4 +18,4 @@ app.mount(
 def root():
     return Path(__file__).resolve().parent / "static" / "index.html"
 
-app.include_router(router)
+app.include_router(router, prefix="/api")
