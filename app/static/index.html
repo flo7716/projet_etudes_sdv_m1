@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pentest Toolbox</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <span class="brand">PENTEST TOOLBOX</span>
+          <span class="tagline">Cybersecurity operations UI</span>
+        </div>
+        <div class="status-pill">Online</div>
+      </header>
+
+      <main class="main-grid">
+        <section class="panel panel-lg">
+          <h1>Attack Surface Dashboard</h1>
+          <p>Run common security tools directly from the browser. Enter a target and inspect results in a dark, hacker-inspired interface.</p>
+        </section>
+
+        <section class="panel">
+          <h2>Tool Launcher</h2>
+
+          <div class="input-group">
+            <label for="target-input">Target / Host</label>
+            <input id="target-input" type="text" placeholder="example.com or 10.0.0.1" />
+          </div>
+
+          <div class="input-group">
+            <label for="hash-input">Hash file (john)</label>
+            <input id="hash-input" type="text" placeholder="/path/to/hashes.txt" />
+          </div>
+
+          <div class="button-grid">
+            <button data-endpoint="/nmap" class="tool-btn">Nmap Scan</button>
+            <button data-endpoint="/nikto" class="tool-btn">Nikto Scan</button>
+            <button data-endpoint="/gobuster" class="tool-btn">Gobuster</button>
+            <button data-endpoint="/hydra" class="tool-btn">Hydra</button>
+            <button data-endpoint="/john" class="tool-btn">John</button>
+          </div>
+        </section>
+
+        <section class="panel panel-full">
+          <div class="panel-header">
+            <h2>Execution Output</h2>
+            <button id="clear-btn" class="ghost-btn">Clear</button>
+          </div>
+          <pre id="output-area" class="output-area">Ready. Select a tool and enter a target.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
