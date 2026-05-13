@@ -1,8 +1,24 @@
+const toolSelect = document.getElementById("tool-select");
 const targetInput = document.getElementById("target-input");
 const hashInput = document.getElementById("hash-input");
+const wordlistInput = document.getElementById("wordlist-input");
+const gobusterWordlistInput = document.getElementById("gobuster-wordlist-input");
+const nmapOptionsInput = document.getElementById("nmap-options-input");
+const hydraUserInput = document.getElementById("hydra-user-input");
+const hydraPasslistInput = document.getElementById("hydra-passlist-input");
 const outputArea = document.getElementById("output-area");
 const clearButton = document.getElementById("clear-btn");
-const toolButtons = document.querySelectorAll(".tool-btn");
+const runButton = document.getElementById("run-btn");
+
+const fieldGroups = {
+  target: document.getElementById("target-group"),
+  nmapOptions: document.getElementById("nmap-options-group"),
+  johnHash: document.getElementById("john-hash-group"),
+  johnWordlist: document.getElementById("john-wordlist-group"),
+  gobusterWordlist: document.getElementById("gobuster-wordlist-group"),
+  hydraUser: document.getElementById("hydra-user-group"),
+  hydraPasslist: document.getElementById("hydra-passlist-group")
+};
 
 const appendOutput = (text, type = "info") => {
   const prefix = type === "error" ? "[ERROR]" : "[INFO]";
@@ -43,11 +59,68 @@ const formatResult = (data) => {
   return JSON.stringify(data, null, 2);
 };
 
-const runScan = async (endpoint) => {
+const showFieldsForTool = (tool) => {
+  Object.values(fieldGroups).forEach((group) => group.classList.add("hidden"));
+  fieldGroups.target.classList.toggle("hidden", tool === "john");
+
+  switch (tool) {
+    case "nmap":
+      fieldGroups.target.classList.remove("hidden");
+      fieldGroups.nmapOptions.classList.remove("hidden");
+      runButton.textContent = "Run Nmap";
+      break;
+    case "nikto":
+      fieldGroups.target.classList.remove("hidden");
+      runButton.textContent = "Run Nikto";
+      break;
+    case "gobuster":
+      fieldGroups.target.classList.remove("hidden");
+      fieldGroups.gobusterWordlist.classList.remove("hidden");
+      runButton.textContent = "Run Gobuster";
+      break;
+    case "hydra":
+      fieldGroups.target.classList.remove("hidden");
+      fieldGroups.hydraUser.classList.remove("hidden");
+      fieldGroups.hydraPasslist.classList.remove("hidden");
+      runButton.textContent = "Run Hydra";
+      break;
+    case "john":
+      fieldGroups.johnHash.classList.remove("hidden");
+      fieldGroups.johnWordlist.classList.remove("hidden");
+      runButton.textContent = "Run John";
+      break;
+    default:
+      runButton.textContent = "Run";
+      break;
+  }
+};
+
+const runScan = async () => {
+  const tool = toolSelect.value;
   const target = targetInput.value.trim();
   const hashFile = hashInput.value.trim();
+  const johnWordlist = wordlistInput.value.trim();
+  const gobusterWordlist = gobusterWordlistInput.value.trim();
+  const nmapOptions = nmapOptionsInput.value.trim();
+  const hydraUser = hydraUserInput.value.trim();
+  const hydraPasslist = hydraPasslistInput.value.trim();
 
-  if (endpoint === "/john") {
+  const endpoints = {
+    nmap: "/nmap",
+    nikto: "/nikto",
+    gobuster: "/gobuster",
+    hydra: "/hydra",
+    john: "/john"
+  };
+
+  const endpoint = endpoints[tool];
+
+  if (!endpoint) {
+    appendOutput("Unknown tool selected.", "error");
+    return;
+  }
+
+  if (tool === "john") {
     if (!hashFile) {
       appendOutput("Please provide a hash file path for John.", "error");
       return;
@@ -59,11 +132,22 @@ const runScan = async (endpoint) => {
     }
   }
 
-  appendOutput(`Running ${endpoint.replace("/", "").toUpperCase()}...`);
+  appendOutput(`Running ${tool.toUpperCase()}...`);
 
   const params = new URLSearchParams();
-  if (endpoint === "/john") {
+  if (tool === "john") {
     params.set("hash_file", hashFile);
+    params.set("wordlist", johnWordlist || "/usr/share/john/password.lst");
+  } else if (tool === "gobuster") {
+    params.set("target", target);
+    params.set("wordlist", gobusterWordlist || "/usr/share/wordlists/dirb/common.txt");
+  } else if (tool === "nmap") {
+    params.set("target", target);
+    if (nmapOptions) params.set("options", nmapOptions);
+  } else if (tool === "hydra") {
+    params.set("target", target);
+    if (hydraUser) params.set("user", hydraUser);
+    if (hydraPasslist) params.set("passlist", hydraPasslist);
   } else {
     params.set("target", target);
   }
@@ -83,13 +167,10 @@ const runScan = async (endpoint) => {
   }
 };
 
-toolButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const endpoint = button.getAttribute("data-endpoint");
-    runScan(endpoint);
-  });
-});
-
+toolSelect.addEventListener("change", () => showFieldsForTool(toolSelect.value));
+runButton.addEventListener("click", runScan);
 clearButton.addEventListener("click", () => {
   outputArea.textContent = "Ready. Select a tool and enter a target.";
 });
+
+showFieldsForTool(toolSelect.value);

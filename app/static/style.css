@@ -170,23 +170,9 @@ input:focus {
   background: rgba(50, 70, 90, 0.95);
 }
 
-.ghost-btn {
-  background: transparent;
-  color: var(--muted);
-}
-
-.output-area {
-  min-height: 320px;
-  margin: 1rem 0 0;
-  padding: 1rem;
-  background: rgba(3, 12, 18, 0.96);
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #dbefff;
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 0.95rem;
-  line-height: 1.55;
-  overflow-x: auto;
+  .hidden {
+    display: none;
+  }
   white-space: pre-wrap;
   word-break: break-word;
 }

@@ -12,21 +12,18 @@ def home():
 
 
 @router.get("/nmap")
-def nmap_scan(target: str):
-
-    result = run_nmap(target)
-
-    return result
+def nmap_scan(target: str, options: str = ""):
+    return run_nmap(target, options)
 
 
 @router.get("/hydra")
-def hydra_scan(target: str):
-    return run_hydra(target)
+def hydra_scan(target: str, user: str = "root", passlist: str = "/usr/share/wordlists/rockyou.txt"):
+    return run_hydra(target, user, passlist)
 
 
 @router.get("/john")
-def john_scan(hash_file: str):
-    return run_john(hash_file)
+def john_scan(hash_file: str, wordlist: str = "/usr/share/john/password.lst"):
+    return run_john(hash_file, wordlist)
 
 @router.get("/nikto")
 def nikto_scan(target: str):
@@ -34,6 +31,6 @@ def nikto_scan(target: str):
     return run_nikto(target)
 
 @router.get("/gobuster")
-def gobuster_scan(target: str):
+def gobuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt"):
     from app.modules.gobuster import run_gobuster
-    return run_gobuster(target)
+    return run_gobuster(target, wordlist)

@@ -1,10 +1,11 @@
 import subprocess
 
 
-def run_john(hash_file):
+def run_john(hash_file, wordlist):
 
     command = [
         "john",
+        "--wordlist=" + wordlist,
         hash_file
     ]
 

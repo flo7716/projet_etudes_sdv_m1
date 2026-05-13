@@ -19,6 +19,9 @@ RUN apt update && apt install -y \
     git \
     nodejs \
     npm \
+    john \    
+    wordlists \
+    seclists \
     && apt clean
 
 WORKDIR /app

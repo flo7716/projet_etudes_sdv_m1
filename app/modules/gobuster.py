@@ -1,7 +1,7 @@
 import subprocess
 
 
-def run_gobuster(target):
+def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt"):
 
     # ajoute http:// automatiquement
     if not target.startswith("http"):
@@ -11,7 +11,7 @@ def run_gobuster(target):
         "gobuster",
         "dir",
         "-u", target,
-        "-w", "/usr/share/wordlists/dirb/common.txt",
+        "-w", wordlist,
         "-q"
     ]
 

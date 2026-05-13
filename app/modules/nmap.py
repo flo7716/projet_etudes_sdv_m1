@@ -37,16 +37,21 @@ def parse_nmap(xml_output):
     }
 
 
-def run_nmap(target):
+def run_nmap(target, options=""):
 
     command = [
         "nmap",
         "-sV",
         "-sC",
         "-O",
-        "-oX", "-",
-        target
+        "-oX", "-"
     ]
+
+    if options:
+        import shlex
+        command.extend(shlex.split(options))
+
+    command.append(target)
 
     result = subprocess.run(
         command,

@@ -1,12 +1,12 @@
 import subprocess
 
-def run_hydra(target):
+def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt"):
 
     result = subprocess.run(
         [
             "hydra",
-            "-l", "root",
-            "-P", "/wordlists/rockyou.txt",
+            "-l", user,
+            "-P", passlist,
             target,
             "ssh"
         ],
