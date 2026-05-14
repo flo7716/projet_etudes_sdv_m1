@@ -2,8 +2,7 @@ services:
 
   api:
     build: .
-    ports:
-      - "8000:8000"
+    # Use docker compose run api <command> to execute CLI subcommands
 
   dvwa:
     image: vulnerables/web-dvwa
