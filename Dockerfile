@@ -11,15 +11,15 @@ RUN apt update && apt install -y \
     hydra \
     gobuster \
     dirb \
+    dirbuster \
     ffuf \
     sqlmap \
     nikto \
-    dirb \
     curl \
     git \
     nodejs \
     npm \
-    john \    
+    john \
     wordlists \
     seclists \
     && apt clean
