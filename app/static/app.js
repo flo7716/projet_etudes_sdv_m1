@@ -6,6 +6,7 @@ const gobusterWordlistInput = document.getElementById("gobuster-wordlist-input")
 const nmapOptionsInput = document.getElementById("nmap-options-input");
 const hydraUserInput = document.getElementById("hydra-user-input");
 const hydraPasslistInput = document.getElementById("hydra-passlist-input");
+const sqlmapOptionsInput = document.getElementById("sqlmap-options-input");
 const outputArea = document.getElementById("output-area");
 const clearButton = document.getElementById("clear-btn");
 const runButton = document.getElementById("run-btn");
@@ -17,7 +18,8 @@ const fieldGroups = {
   johnWordlist: document.getElementById("john-wordlist-group"),
   gobusterWordlist: document.getElementById("gobuster-wordlist-group"),
   hydraUser: document.getElementById("hydra-user-group"),
-  hydraPasslist: document.getElementById("hydra-passlist-group")
+  hydraPasslist: document.getElementById("hydra-passlist-group"),
+  sqlmapOptions: document.getElementById("sqlmap-options-group")
 };
 
 const appendOutput = (text, type = "info") => {
@@ -89,6 +91,11 @@ const showFieldsForTool = (tool) => {
       fieldGroups.johnWordlist.classList.remove("hidden");
       runButton.textContent = "Run John";
       break;
+    case "sqlmap":
+      fieldGroups.target.classList.remove("hidden");
+      fieldGroups.sqlmapOptions.classList.remove("hidden");
+      runButton.textContent = "Run SQLmap";
+      break;
     default:
       runButton.textContent = "Run";
       break;
@@ -104,13 +111,15 @@ const runScan = async () => {
   const nmapOptions = nmapOptionsInput.value.trim();
   const hydraUser = hydraUserInput.value.trim();
   const hydraPasslist = hydraPasslistInput.value.trim();
+  const sqlmapOptions = sqlmapOptionsInput.value.trim();
 
   const endpoints = {
     nmap: "/nmap",
     nikto: "/nikto",
     gobuster: "/gobuster",
     hydra: "/hydra",
-    john: "/john"
+    john: "/john",
+    sqlmap: "/sqlmap"
   };
 
   const endpoint = endpoints[tool];
@@ -148,6 +157,9 @@ const runScan = async () => {
     params.set("target", target);
     if (hydraUser) params.set("user", hydraUser);
     if (hydraPasslist) params.set("passlist", hydraPasslist);
+  } else if (tool === "sqlmap") {
+    params.set("target", target);
+    if (sqlmapOptions) params.set("options", sqlmapOptions);
   } else {
     params.set("target", target);
   }

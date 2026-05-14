@@ -33,6 +33,7 @@
               <option value="gobuster">Gobuster</option>
               <option value="hydra">Hydra</option>
               <option value="john">John</option>
+              <option value="sqlmap">SQLmap</option>
             </select>
           </div>
 
@@ -70,6 +71,11 @@
             <div class="input-group hidden" id="hydra-passlist-group">
               <label for="hydra-passlist-input">Password list (hydra)</label>
               <input id="hydra-passlist-input" type="text" placeholder="/usr/share/wordlists/rockyou.txt" />
+            </div>
+
+            <div class="input-group hidden" id="sqlmap-options-group">
+              <label for="sqlmap-options-input">SQLmap options</label>
+              <input id="sqlmap-options-input" type="text" placeholder="--dbs --tables" />
             </div>
           </div>
 

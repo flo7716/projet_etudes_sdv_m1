@@ -34,3 +34,8 @@ def nikto_scan(target: str):
 def gobuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt"):
     from app.modules.gobuster import run_gobuster
     return run_gobuster(target, wordlist)
+
+@router.get("/sqlmap")
+def sqlmap_scan(target: str, options: str = ""):
+    from app.modules.sqlmap import run_sqlmap
+    return run_sqlmap(target, options)
