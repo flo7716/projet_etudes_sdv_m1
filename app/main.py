@@ -7,6 +7,8 @@ from app.modules.john import run_john
 from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
 from app.modules.sqlmap import run_sqlmap
+from app.modules.report import generate_pdf_report
+from datetime import datetime, timezone
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,6 +83,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional sqlmap options (quoted string)",
     )
 
+    pipeline_parser = subparsers.add_parser("pipeline", help="Run a pentest pipeline and generate PDF report")
+    pipeline_parser.add_argument(
+        "--tests",
+        nargs="+",
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john"],
+        required=True,
+        help="List of tests to run (space-separated)",
+    )
+    pipeline_parser.add_argument("--target", required=True, help="Target host/URL for tests")
+    pipeline_parser.add_argument("--out", default="report.pdf", help="Output PDF filename")
+    pipeline_parser.add_argument(
+        "--copy-to-host",
+        action="store_true",
+        help="If running in Docker with a bind-mounted host directory, attempt to copy the PDF into the host mount",
+    )
+    pipeline_parser.add_argument(
+        "--host-dest",
+        default=None,
+        help="Explicit container path that is bind-mounted to the host (e.g. /app). If set, PDF will be copied there.",
+    )
+
     return parser
 
 
@@ -100,6 +123,38 @@ def main() -> int:
         result = run_gobuster(args.target, args.wordlist, args.options)
     elif args.command == "sqlmap":
         result = run_sqlmap(args.target, args.options)
+    elif args.command == "pipeline":
+        # run selected tests and aggregate results
+        results = {}
+        ts = datetime.now(timezone.utc).isoformat()
+        for test in args.tests:
+            try:
+                if test == "nmap":
+                    results["nmap"] = run_nmap(args.target, "")
+                elif test == "nikto":
+                    results["nikto"] = run_nikto(args.target, "")
+                elif test == "gobuster":
+                    results["gobuster"] = run_gobuster(args.target, None, "")
+                elif test == "sqlmap":
+                    results["sqlmap"] = run_sqlmap(args.target, "")
+                elif test == "hydra":
+                    # hydra requires a username and passlist; use defaults
+                    results["hydra"] = run_hydra(args.target, "root", None, "")
+                elif test == "john":
+                    # john typically uses a hash file; record that it's skipped when not provided
+                    results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+            except Exception as e:
+                results[test] = {"error": str(e)}
+
+        report_title = f"Pentest report for {args.target} ({ts})"
+        pdf_result = generate_pdf_report(
+            results,
+            report_title,
+            args.out,
+            copy_to_host=args.copy_to_host,
+            host_dest=args.host_dest,
+        )
+        result = {"pipeline": results, "report": pdf_result}
     else:
         parser.error("Unknown command")
         return 1

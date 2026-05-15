@@ -3,6 +3,8 @@ services:
   api:
     build: .
     # Use docker compose run api <command> to execute CLI subcommands
+    volumes:
+      - ./:/app
 
   dvwa:
     image: vulnerables/web-dvwa

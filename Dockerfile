@@ -15,6 +15,9 @@ RUN apt update && apt install -y \
     ffuf \
     sqlmap \
     nikto \
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
     curl \
     git \
     nodejs \
