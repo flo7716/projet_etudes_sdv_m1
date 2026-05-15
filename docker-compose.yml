@@ -5,6 +5,9 @@ services:
     # Use docker compose run api <command> to execute CLI subcommands
     volumes:
       - ./:/app
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
 
   dvwa:
     image: vulnerables/web-dvwa

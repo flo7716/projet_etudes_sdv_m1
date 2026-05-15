@@ -19,26 +19,6 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Check if docker-compose is available
-if ! command -v docker-compose &> /dev/null; then
-    if ! command -v docker &> /dev/null; then
-        echo -e "${RED}Error: Docker is not installed${NC}"
-        exit 1
-    fi
-    # Try using 'docker compose' if 'docker-compose' is not available
-    DOCKER_CMD="docker compose"
-else
-    DOCKER_CMD="docker-compose"
-fi
-
-# Check if the docker-compose has been built, if not, build it first
-if ! $DOCKER_CMD images | grep -q "$(basename "$(pwd)")_api"; then
-    echo -e "${YELLOW}Docker images not found. Building the project...${NC}"
-    $DOCKER_CMD build
-    $DOCKER_CMD up -d
-fi
-
-
 # Display banner
 echo -e "${CYAN}"
 echo "╔════════════════════════════════════════╗"
@@ -50,13 +30,20 @@ echo -e "${NC}"
 # Check if API service is running
 echo -e "${YELLOW}Checking Docker setup...${NC}"
 
-# Build and run the interactive CLI
+# Build the Docker image if needed
+IMAGE_NAME="projet_etudes_sdv_m1-api"
+if ! docker images | grep -q "$IMAGE_NAME"; then
+    echo -e "${YELLOW}Building Docker image...${NC}"
+    $DOCKER_CMD build -t "$IMAGE_NAME" .
+fi
+
+# Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
-$DOCKER_CMD run -it --rm \
+docker run -it --rm \
     -v "$(pwd)":/app \
-    --name pentest-cli \
-    $(basename "$(pwd)")_api \
-    python -m app.cli_interactive
+    -w /app \
+    "$IMAGE_NAME" \
+    python3 -m app.cli_interactive
 
 exit_code=$?
 
