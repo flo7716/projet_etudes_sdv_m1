@@ -92,7 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="List of tests to run (space-separated)",
     )
     pipeline_parser.add_argument("--target", required=True, help="Target host/URL for tests")
-    pipeline_parser.add_argument("--out", default="report.pdf", help="Output PDF filename")
+    default_report_name = datetime.now(timezone.utc).strftime("report_%Y%m%d_%H%M%SZ.pdf")
+    pipeline_parser.add_argument("--out", default=default_report_name, help="Output PDF filename")
     pipeline_parser.add_argument(
         "--copy-to-host",
         action="store_true",

@@ -11,6 +11,7 @@ from rich.table import Table
 from rich.syntax import Syntax
 import sys
 import os
+from datetime import datetime, timezone
 
 from app.modules.gobuster import run_gobuster
 from app.modules.hydra import run_hydra
@@ -207,10 +208,16 @@ def run_pipeline_interactive():
         validate=lambda x: len(x) > 0
     ).ask()
     
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
+    default_filename = f"report_{timestamp}.pdf"
     output_file = questionary.text(
         "Output PDF filename:",
-        default="report.pdf"
+        default=default_filename
     ).ask()
+    if not output_file or not output_file.strip():
+        output_file = default_filename
+    elif not output_file.lower().endswith(".pdf"):
+        output_file = f"{output_file}.pdf"
     
     copy_to_host = questionary.confirm(
         "Copy PDF to host mount?",
@@ -218,12 +225,33 @@ def run_pipeline_interactive():
     ).ask()
     
     console.print(f"\n[yellow]Running pipeline with tests: {', '.join(tests)}[/yellow]")
+    results = {}
+    for test in tests:
+        try:
+            if test == "nmap":
+                results["nmap"] = run_nmap(target, "")
+            elif test == "nikto":
+                results["nikto"] = run_nikto(target, "")
+            elif test == "gobuster":
+                results["gobuster"] = run_gobuster(target, None, "")
+            elif test == "sqlmap":
+                results["sqlmap"] = run_sqlmap(target, "")
+            elif test == "hydra":
+                results["hydra"] = run_hydra(target, "root", None, "")
+            elif test == "john":
+                results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+            else:
+                results[test] = {"error": "Unknown test selected"}
+        except Exception as e:
+            results[test] = {"error": str(e)}
+
+    report_title = f"Pentest report for {target} ({timestamp})"
     try:
         result = generate_pdf_report(
-            tests=tests,
-            target=target,
-            output_file=output_file,
-            copy_to_host=copy_to_host
+            results,
+            report_title,
+            output_file,
+            copy_to_host=copy_to_host,
         )
         console.print(f"[green]✓ Pipeline completed[/green]")
         console.print(f"[green]Report saved to: {output_file}[/green]")

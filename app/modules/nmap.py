@@ -3,37 +3,90 @@ import xml.etree.ElementTree as ET
 
 
 def parse_nmap(xml_output):
-
     root = ET.fromstring(xml_output)
+    host = root.find("host")
 
-    results = []
+    addresses = []
+    hostnames = []
+    status = None
+    if host is not None:
+        status_el = host.find("status")
+        if status_el is not None:
+            status = status_el.get("state")
 
-    for port in root.findall(".//port"):
+        for address in host.findall("address"):
+            addr = address.get("addr")
+            if addr:
+                addresses.append(addr)
 
-        state = port.find("state").get("state")
+        for hostname in host.findall("hostname"):
+            name = hostname.get("name")
+            if name:
+                hostnames.append(name)
 
-        # garder uniquement ports ouverts
-        if state != "open":
-            continue
+    scan_info = {}
+    scan_info_el = root.find("scaninfo")
+    if scan_info_el is not None:
+        scan_info = scan_info_el.attrib
 
-        port_id = port.get("portid")
-
-        service_element = port.find("service")
-
-        service = (
-            service_element.get("name")
-            if service_element is not None
-            else "unknown"
-        )
-
-        results.append({
-            "port": port_id,
-            "service": service
+    os_matches = []
+    for osmatch in root.findall(".//osmatch"):
+        os_matches.append({
+            "name": osmatch.get("name"),
+            "accuracy": osmatch.get("accuracy"),
+            "line": osmatch.get("line"),
         })
 
+    ports = []
+    for port in root.findall(".//port"):
+        state_el = port.find("state")
+        if state_el is None:
+            continue
+
+        state = state_el.get("state")
+        service_el = port.find("service")
+        service = {}
+        if service_el is not None:
+            service = {
+                "name": service_el.get("name"),
+                "product": service_el.get("product"),
+                "version": service_el.get("version"),
+                "extrainfo": service_el.get("extrainfo"),
+            }
+
+        scripts = []
+        for script in port.findall("script"):
+            scripts.append({
+                "id": script.get("id"),
+                "output": script.get("output"),
+            })
+
+        ports.append({
+            "port": port.get("portid"),
+            "protocol": port.get("protocol"),
+            "state": state,
+            "service": service,
+            "scripts": scripts,
+        })
+
+    open_ports = [p for p in ports if p["state"] == "open"]
+
+    scan_stats = {}
+    finished = root.find("runstats/finished")
+    if finished is not None:
+        scan_stats = finished.attrib
+
     return {
-        "open_ports_count": len(results),
-        "open_ports": results
+        "status": status,
+        "host": {
+            "addresses": addresses,
+            "hostnames": hostnames,
+        },
+        "scan_info": scan_info,
+        "scan_stats": scan_stats,
+        "open_ports_count": len(open_ports),
+        "open_ports": open_ports,
+        "os_matches": os_matches,
     }
 
 

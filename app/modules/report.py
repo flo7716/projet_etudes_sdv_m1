@@ -12,15 +12,12 @@ LATEX_TEMPLATE = r"""
 \usepackage{geometry}
 \geometry{margin=1in}
 \begin{document}
-	itle{%s}
-\date{}
-\maketitle
-\section*{Summary}
-Generated results from automated pentest pipeline.
-\section*{Details}
+
 %s
 \end{document}
 """
+
+TEMPLATE_PLACEHOLDER = "%%REPORT_CONTENT%%"
 
 
 def _escape_latex(text: str) -> str:
@@ -41,20 +38,118 @@ def _escape_latex(text: str) -> str:
     return text
 
 
-def _render_results_as_latex(results: Dict[str, Any]) -> str:
+def _load_report_template() -> str:
+    template_path = os.path.join(os.path.dirname(__file__), "model", "report.tex")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return LATEX_TEMPLATE
+
+
+def _render_summary_page(results: Dict[str, Any]) -> str:
+    tests = sorted(results.keys())
+    parts = ["\\section*{Summary}", "\\begin{itemize}"]
+    for tool in tests:
+        data = results[tool]
+        status = "Completed"
+        if isinstance(data, dict):
+            if data.get("error"):
+                status = f"Error: {data['error']}"
+            elif data.get("note"):
+                status = data["note"]
+            elif tool == "nmap" and isinstance(data.get("open_ports_count"), int):
+                status = f"{data['open_ports_count']} open ports"
+
+        parts.append(
+            f"  \\item \\textbf{{{_escape_latex(tool)}}}: {_escape_latex(str(status))}"
+        )
+    parts.append("\\end{itemize}")
+    return "\n".join(parts)
+
+
+def _render_verbatim(data: Any) -> str:
+    try:
+        dump = json.dumps(data, ensure_ascii=False, indent=2)
+    except Exception:
+        dump = repr(data)
+    return "\\begin{verbatim}\n" + dump + "\n\\end{verbatim}"
+
+
+def _format_service_info(service: dict) -> str:
     parts = []
-    for tool, data in results.items():
-        parts.append(f"\\subsection*{{{_escape_latex(tool)}}}")
-        parts.append("\\begin{verbatim}")
-        # pretty JSON for readability (verbatim will protect special chars)
-        try:
-            dump = json.dumps(data, ensure_ascii=False, indent=2)
-        except Exception:
-            dump = repr(data)
-        parts.append(dump)
-        parts.append("\\end{verbatim}")
+    name = service.get("name")
+    if name:
+        parts.append(name)
+    if service.get("product"):
+        parts.append(service["product"])
+    if service.get("version"):
+        parts.append(service["version"])
+    if service.get("extrainfo"):
+        parts.append(service["extrainfo"])
+    return " ".join(parts).strip()
+
+
+def _render_nmap_data(data: Dict[str, Any]) -> str:
+    parts = []
+    host = data.get("host", {})
+    if host:
+        if host.get("hostnames"):
+            parts.append("\\textbf{Hostnames}: " + _escape_latex(", ".join(host["hostnames"])) + "\\")
+        if host.get("addresses"):
+            parts.append("\\textbf{Addresses}: " + _escape_latex(", ".join(host["addresses"])) + "\\")
+    if scan_info := data.get("scan_info"):
+        parts.append("\\textbf{Scan info}: " + _escape_latex(json.dumps(scan_info, ensure_ascii=False)) + "\\")
+    if scan_stats := data.get("scan_stats"):
+        parts.append("\\textbf{Scan statistics}: " + _escape_latex(json.dumps(scan_stats, ensure_ascii=False)) + "\\")
+    parts.append("\\textbf{Status}: " + _escape_latex(str(data.get("status", "unknown"))) + "\\")
+    parts.append("\\textbf{Open ports count}: " + _escape_latex(str(data.get("open_ports_count", 0))) + "\\")
+    parts.append("\\subsection*{Open ports}")
+    if data.get("open_ports"):
+        parts.append("\\begin{itemize}")
+        for port in data["open_ports"]:
+            service = _format_service_info(port.get("service", {}))
+            port_label = f"{port.get('port')}/{port.get('protocol')} - {service}".strip()
+            parts.append("  \\item " + _escape_latex(port_label))
+            scripts = port.get("scripts", [])
+            if scripts:
+                parts.append("  \\begin{itemize}")
+                for script in scripts:
+                    script_line = f"{script.get('id')}: {script.get('output')}"
+                    parts.append("    \\item " + _escape_latex(script_line))
+                parts.append("  \\end{itemize}")
+        parts.append("\\end{itemize}")
+    else:
+        parts.append("No open ports detected.\\")
+
+    os_matches = data.get("os_matches", [])
+    if os_matches:
+        parts.append("\\subsection*{OS matches}")
+        parts.append("\\begin{itemize}")
+        for match in os_matches:
+            match_line = f"{match.get('name')} (accuracy: {match.get('accuracy')})"
+            parts.append("  \\item " + _escape_latex(match_line))
+        parts.append("\\end{itemize}")
 
     return "\n".join(parts)
+
+
+def _render_tool_page(tool: str, data: Any) -> str:
+    title = f"\\section*{{{_escape_latex(tool.title())}}}"
+    if isinstance(data, dict) and data.get("error"):
+        return title + "\n\\textbf{Error}: " + _escape_latex(str(data.get("error")))
+    if tool == "nmap" and isinstance(data, dict):
+        return title + "\n" + _render_nmap_data(data)
+    return title + "\n" + _render_verbatim(data)
+
+
+def _render_results_as_latex(results: Dict[str, Any]) -> str:
+    pages = [
+        _render_summary_page(results),
+    ]
+    for tool, data in results.items():
+        pages.append(_render_tool_page(tool, data))
+    return "\n\\newpage\n".join(pages)
 
 
 def _find_host_mount_candidates():
@@ -81,9 +176,14 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
 
     Writes temporary .tex, runs pdflatex, and moves PDF to output_path.
     """
-    safe_title = _escape_latex(title)
+    template = _load_report_template()
     tex_body = _render_results_as_latex(results)
-    tex = LATEX_TEMPLATE % (safe_title, tex_body)
+    if TEMPLATE_PLACEHOLDER in template:
+        tex = template.replace(TEMPLATE_PLACEHOLDER, tex_body)
+    elif "\\end{document}" in template:
+        tex = template.replace("\\end{document}", tex_body + "\n\\end{document}")
+    else:
+        tex = LATEX_TEMPLATE % tex_body
 
     # ensure output directory exists
     out_dir = os.path.dirname(output_path)
