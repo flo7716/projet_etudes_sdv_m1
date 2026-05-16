@@ -4,6 +4,7 @@ Interactive CLI for Pentest Toolbox
 Provides a user-friendly menu-driven interface to run security testing tools
 """
 
+from app.modules.ettercap import run_ettercap
 import questionary
 from rich.console import Console
 from rich.panel import Panel
@@ -192,6 +193,30 @@ def run_sqlmap_interactive():
     except Exception as e:
         console.print(f"[red]✗ Error: {str(e)}[/red]")
 
+def run_ettercap_interactive():
+    """Interactive ettercap scan"""
+    console.print("\n[bold cyan]=== ETTERCAP NETWORK DISCOVERY ===[/bold cyan]")
+    
+    target = questionary.text(
+        "Enter target host/IP range (e.g., 192.168.1.0/24):",
+        validate=lambda x: len(x) > 0
+    ).ask()
+
+    options = questionary.text(
+        "Additional ettercap options (leave empty for defaults):",
+        default=""
+    ).ask()
+
+    console.print(f"\n[yellow]Running ettercap on {target}...[/yellow]")
+    try:        
+        result = run_ettercap(target, options)
+        console.print(f"[green]✓ Ettercap scan completed[/green]")
+        console.print(result)
+    except Exception as e:
+        console.print(f"[red]✗ Error: {str(e)}[/red]")
+    
+
+
 
 def run_pipeline_interactive():
     """Interactive pipeline execution"""
@@ -204,7 +229,7 @@ def run_pipeline_interactive():
     
     tests = questionary.checkbox(
         "Select tests to run:",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap"],
         validate=lambda x: len(x) > 0
     ).ask()
     
@@ -240,6 +265,8 @@ def run_pipeline_interactive():
                 results["hydra"] = run_hydra(target, "root", None, "")
             elif test == "john":
                 results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+            elif test == "ettercap":
+                results["ettercap"] = run_ettercap(target, "")
             else:
                 results[test] = {"error": "Unknown test selected"}
         except Exception as e:

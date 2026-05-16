@@ -20,8 +20,7 @@ RUN apt update && apt install -y \
     texlive-fonts-recommended \
     curl \
     git \
-    nodejs \
-    npm \
+    ettercap-common \
     john \
     wordlists \
     seclists \

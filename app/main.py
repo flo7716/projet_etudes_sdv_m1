@@ -7,6 +7,7 @@ from app.modules.john import run_john
 from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
 from app.modules.sqlmap import run_sqlmap
+from app.modules.ettercap import run_ettercap
 from app.modules.report import generate_pdf_report
 from datetime import datetime, timezone
 
@@ -83,11 +84,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional sqlmap options (quoted string)",
     )
 
+    ettercap_parser = subparsers.add_parser("ettercap", help="Run ettercap network scan")
+    ettercap_parser.add_argument("target", help="Target host or IP for ettercap")
+    ettercap_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional ettercap options (quoted string)",
+    )
+
     pipeline_parser = subparsers.add_parser("pipeline", help="Run a pentest pipeline and generate PDF report")
     pipeline_parser.add_argument(
         "--tests",
         nargs="+",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap"],
         required=True,
         help="List of tests to run (space-separated)",
     )
@@ -144,6 +153,9 @@ def main() -> int:
                 elif test == "john":
                     # john typically uses a hash file; record that it's skipped when not provided
                     results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+                elif test == "ettercap":
+                    # ettercap requires a target; use the provided target
+                    results["ettercap"] = run_ettercap(args.target, args.options)
             except Exception as e:
                 results[test] = {"error": str(e)}
 
