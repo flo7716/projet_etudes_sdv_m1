@@ -344,6 +344,8 @@ def main():
                 "🕷️  NIKTO - Web Scanning",
                 "📁 GOBUSTER - Directory Scanning",
                 "🗄️  SQLMAP - SQL Injection",
+                "🕸️  ETTERCAP - Network Discovery",
+                "💀 MSFVENOM - Payload Generation",
                 "📊 PIPELINE - Run Full Pipeline",
                 "ℹ️  Information",
                 "❌ Exit",
@@ -365,6 +367,10 @@ def main():
             run_sqlmap_interactive()
         elif "PIPELINE" in choice:
             run_pipeline_interactive()
+        elif "ETTERCAP" in choice:
+            run_ettercap_interactive()
+        elif "MSFVENOM" in choice:
+            run_msfvenom_interactive()
         elif "Information" in choice:
             display_tools_info()
         elif "Exit" in choice:
