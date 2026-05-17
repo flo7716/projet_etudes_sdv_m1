@@ -116,6 +116,24 @@ python -m app.cli_interactive
 
 ---
 
+### 🌐 ETTERCAP - Network discovery and MITM attack
+- Network sniffing and MITM attacks
+- Host discovery and traffic analysis
+
+**Parameters:**
+- Target network range
+- Additional options (optional)
+
+### 🛡️ MSFVENOM - Payload generation
+- Generates payloads for various platforms
+- Supports multiple encoding techniques
+
+**Parameters:**
+- Payload type
+- LHOST (listener host)
+- LPORT (listener port)
+- Additional options (optional such as RHOSTS, RPORTS, etc.)
+
 ### 📊 PIPELINE - Full Pentest Pipeline
 - Run multiple tests in sequence
 - Generate comprehensive PDF report
