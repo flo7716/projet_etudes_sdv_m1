@@ -1,2 +1,7 @@
 report*.pdf
 *.pyc
+
+
+#ignore all pycache folders of the project
+__pycache__/
+
