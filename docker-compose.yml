@@ -1,6 +1,6 @@
 services:
 
-  api:
+  projet_etudes_sdv_m1-api:
     build: .
     # Use docker compose run api <command> to execute CLI subcommands
     volumes:

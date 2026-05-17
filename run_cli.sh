@@ -34,12 +34,12 @@ echo -e "${YELLOW}Checking Docker setup...${NC}"
 IMAGE_NAME="projet_etudes_sdv_m1-api"
 if ! docker images | grep -q "$IMAGE_NAME"; then
     echo -e "${YELLOW}Building Docker image...${NC}"
-    docker build -t "$IMAGE_NAME" .
+    docker compose build
 fi
 
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
-docker run -it --rm \
+docker compose run -it --rm \
     -v "$(pwd)":/app \
     -w /app \
     "$IMAGE_NAME" \
