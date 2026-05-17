@@ -4,6 +4,7 @@ import json
 from app.modules.gobuster import run_gobuster
 from app.modules.hydra import run_hydra
 from app.modules.john import run_john
+from app.modules.msfvenom import run_msfvenom
 from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
 from app.modules.sqlmap import run_sqlmap
@@ -92,6 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional ettercap options (quoted string)",
     )
 
+    msfvenom_parser = subparsers.add_parser("msfvenom", help="Run msfvenom payload generation")
+    msfvenom_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional msfvenom options (quoted string)",
+    )
+
     pipeline_parser = subparsers.add_parser("pipeline", help="Run a pentest pipeline and generate PDF report")
     pipeline_parser.add_argument(
         "--tests",
@@ -133,6 +141,10 @@ def main() -> int:
         result = run_gobuster(args.target, args.wordlist, args.options)
     elif args.command == "sqlmap":
         result = run_sqlmap(args.target, args.options)
+    elif args.command == "ettercap":
+        result = run_ettercap(args.target, args.options)
+    elif args.command == "msfvenom":
+        result = run_msfvenom(args.options)
     elif args.command == "pipeline":
         # run selected tests and aggregate results
         results = {}
@@ -156,6 +168,8 @@ def main() -> int:
                 elif test == "ettercap":
                     # ettercap requires a target; use the provided target
                     results["ettercap"] = run_ettercap(args.target, args.options)
+                elif test == "msfvenom":
+                    results["msfvenom"] = run_msfvenom(args.options)
             except Exception as e:
                 results[test] = {"error": str(e)}
 

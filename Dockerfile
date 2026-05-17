@@ -21,6 +21,7 @@ RUN apt update && apt install -y \
     curl \
     git \
     ettercap-common \
+    metasploit-framework \
     john \
     wordlists \
     seclists \

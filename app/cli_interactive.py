@@ -5,6 +5,7 @@ Provides a user-friendly menu-driven interface to run security testing tools
 """
 
 from app.modules.ettercap import run_ettercap
+from app.modules.msfvenom import run_msfvenom
 import questionary
 from rich.console import Console
 from rich.panel import Panel
@@ -215,7 +216,22 @@ def run_ettercap_interactive():
     except Exception as e:
         console.print(f"[red]✗ Error: {str(e)}[/red]")
     
+def run_msfvenom_interactive():
+    """Interactive msfvenom payload generation"""
+    console.print("\n[bold cyan]=== MSFVENOM PAYLOAD GENERATION ===[/bold cyan]")
+    
+    options = questionary.text(
+        "Enter msfvenom options (e.g., -p windows/meterpreter/reverse_tcp LHOST=<IP>)",
+        default=""
+    ).ask()
 
+    console.print(f"\n[yellow]Generating payload with msfvenom...[/yellow]")
+    try:
+        result = run_msfvenom(options)
+        console.print(f"[green]✓ Payload generation completed[/green]")
+        console.print(result)
+    except Exception as e:
+        console.print(f"[red]✗ Error: {str(e)}[/red]")
 
 
 def run_pipeline_interactive():
@@ -302,6 +318,8 @@ def display_tools_info():
         ("NIKTO", "Web server scanner"),
         ("GOBUSTER", "Directory/file brute-forcing"),
         ("SQLMAP", "SQL injection detection"),
+        ("ETTERCAP", "Network discovery and MITM attacks"),
+        ("MSFVENOM", "Payload generation"),
         ("PIPELINE", "Run multiple tests & generate report"),
     ]
     

@@ -143,6 +143,8 @@ python -m app.cli_interactive
     🕷️  NIKTO - Web Scanning
     📁 GOBUSTER - Directory Scanning
     🗄️  SQLMAP - SQL Injection
+    🌐 ETTERCAP - Network discovery and MITM attack
+    🛡️ MSFVENOM - Payload generation
     📊 PIPELINE - Run Full Pipeline
     ℹ️  Information
     ❌ Exit
