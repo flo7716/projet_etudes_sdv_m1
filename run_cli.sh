@@ -37,6 +37,23 @@ if ! docker images | grep -q "$IMAGE_NAME"; then
     docker compose build
 fi
 
+# Start DVWA if not running
+DVWA_CONTAINER=$(docker compose ps -q dvwa)
+
+if [ -z "$DVWA_CONTAINER" ]; then
+    echo -e "${YELLOW}Starting DVWA container...${NC}"
+    docker compose up -d dvwa
+else
+    DVWA_STATUS=$(docker inspect -f '{{.State.Running}}' "$DVWA_CONTAINER")
+
+    if [ "$DVWA_STATUS" != "true" ]; then
+        echo -e "${YELLOW}Starting existing DVWA container...${NC}"
+        docker compose start dvwa
+    else
+        echo -e "${GREEN}✓ DVWA container is already running.${NC}"
+    fi
+fi
+
 # Get the DVWA ip address from the docker-compose setup
 DVWA_IP=$(docker compose ps -q dvwa | xargs docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 if [ -z "$DVWA_IP" ]; then
