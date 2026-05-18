@@ -250,61 +250,50 @@ def run_pipeline_interactive():
     ).ask()
 
     # Afficher les options en fonction du ou des tests sélectionnés
-    if "nmap" in tests:
-        nmap_options = questionary.text(
-            "Additional nmap options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "nikto" in tests:
-        nikto_options = questionary.text(
-            "Additional nikto options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "gobuster" in tests:
-        gobuster_wordlist = questionary.text(
-            "Gobuster wordlist path:",
-            default="/usr/share/wordlists/dirbuster/directory-list-1.0.txt"
-        ).ask()
-        gobuster_options = questionary.text(
-            "Additional gobuster options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "sqlmap" in tests:
-        sqlmap_options = questionary.text(
-            "Additional sqlmap options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "hydra" in tests:
-        hydra_user = questionary.text(
-            "Hydra username to brute force:",
-            default="root"
-        ).ask()
-        hydra_passlist = questionary.text(
-            "Hydra password list path:",
-            default="/usr/share/wordlists/rockyou.txt"
-        ).ask()
-        hydra_options = questionary.text(
-            "Additional hydra options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "john" in tests:
-        john_hash_file = questionary.text(
-            "John hash file path:",
-            validate=lambda x: len(x) > 0
-        ).ask()
-        john_wordlist = questionary.text(
-            "John wordlist path:",
-            default="/usr/share/john/password.lst"
-        ).ask()
-        john_options = questionary.text(
-            "Additional john options (leave empty for defaults):",
-            default=""
-        ).ask()
-    elif "ettercap" in tests:
-        ettercap_options = questionary.text(
-            "Additional ettercap options (leave empty for defaults):",
-            default=""
-        ).ask()
+    for test in tests:
+        console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
+        if test == "nmap":
+            options = questionary.text(
+                "Additional nmap options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for nmap: {options}")
+        elif test == "nikto":
+            options = questionary.text(
+                "Additional nikto options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for nikto: {options}")
+        elif test == "gobuster":
+            options = questionary.text(
+                "Additional gobuster options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for gobuster: {options}")
+        elif test == "sqlmap":
+            options = questionary.text(
+                "Additional sqlmap options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for sqlmap: {options}")
+        elif test == "hydra":
+            options = questionary.text(
+                "Additional hydra options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for hydra: {options}")
+        elif test == "john":
+            options = questionary.text(
+                "Additional john options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for john: {options}")
+        elif test == "ettercap":
+            options = questionary.text(
+                "Additional ettercap options (leave empty for defaults):",
+                default=""
+            ).ask()
+            console.print(f"Options for ettercap: {options}")
 
 
     
