@@ -18,7 +18,7 @@ def parse_gobuster(output):
 
 
 
-def run_gobuster(target, wordlist="/usr/share/wordlists/dirb/common.txt", options=""):
+def run_gobuster(target, wordlist="/usr/share/wordlists/dirbuster/directory-list-1.0.txt", options=""):
 
     # ajoute http:// automatiquement
     if not target.startswith("http"):

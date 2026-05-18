@@ -155,7 +155,7 @@ def run_gobuster_interactive():
     
     wordlist = questionary.text(
         "Wordlist path:",
-        default="/usr/share/wordlists/dirb/common.txt"
+        default="/usr/share/wordlists/dirbuster/directory-list-1.0.txt"
     ).ask()
     
     options = questionary.text(
