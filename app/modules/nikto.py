@@ -25,8 +25,9 @@ def run_nikto(target, options=""):
 
     command = [
         "nikto",
-        "-h",
-        target
+        "-h", target,
+        "-maxtime", "2m",
+        "-Tuning", "x"
     ]
     if options:
         command.extend(options.split())

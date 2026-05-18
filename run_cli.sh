@@ -37,6 +37,14 @@ if ! docker images | grep -q "$IMAGE_NAME"; then
     docker compose build
 fi
 
+# Get the DVWA ip address from the docker-compose setup
+DVWA_IP=$(docker compose ps -q dvwa | xargs docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+if [ -z "$DVWA_IP" ]; then
+    echo -e "${RED}Error: Could not find DVWA container. Please ensure it is running.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Docker setup looks good. For testing, you can use the DVWA IP: ${DVWA_IP}${NC}"
+
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
 docker compose run -it --rm \

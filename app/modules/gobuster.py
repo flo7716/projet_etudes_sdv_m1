@@ -7,7 +7,8 @@ def parse_gobuster(output):
     results = []
 
     for line in lines:
-        if line.startswith("/"):
+        #catches for lines with 301, 302, 403, 500 status codes
+        if any(status in line for status in ["301", "302", "403", "500"]):
             results.append(line)
 
     return {
