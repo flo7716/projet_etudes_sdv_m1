@@ -35,7 +35,7 @@ IMAGE_NAME="projet_etudes_sdv_m1-api"
 DVWA_IMAGE_NAME="vulnerables/web-dvwa"
 if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
     echo -e "${YELLOW}Building API Docker image...${NC}"
-    docker compose build api
+    docker compose build
 else
     echo -e "${GREEN}✓ API Docker image already exists.${NC}"
 fi
