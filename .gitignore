@@ -1,2 +1,9 @@
-./deployment/docker/openvas/openvas.env# OpenVAS environment variables
-.env
+report*.pdf
+*.pyc
+
+
+#ignore all pycache folders of the project
+__pycache__/
+
+#ignore all .pyc files of the project
+*.pyc

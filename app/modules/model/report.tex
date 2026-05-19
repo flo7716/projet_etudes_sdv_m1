@@ -1,0 +1,51 @@
+% LATEX report for model pentest report
+
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{geometry}
+
+\geometry{a4paper, margin=1in}
+
+\title{Model Penetration Testing Report}
+\author{
+    Florian ANDRE \\
+    Amine KAHLAOUI \\
+    Adeshilan MOSEBOLATAN \\
+    Anas TALIBI
+}
+
+% Insert the date of the report generation
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% Insert the company logo (JPG) located on this directory
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.4\textwidth]{logo_sdv.jpg}
+\end{figure}
+
+\section{Introduction}
+
+This report presents the results of an automated penetration test using several tools. Each page of the report corresponds to a specific tool, detailing the vulnerabilities identified and the recommendations for remediation.
+
+The tools that can be used in this test include:
+\begin{itemize}
+    \item Nmap
+    \item Nikto
+    \item Hydra
+    \item SQLmap
+    \item Gobuster
+    \item Ettercap
+    \item Metasploit
+\end{itemize}
+
+%%REPORT_CONTENT%%
+
+\end{document}
