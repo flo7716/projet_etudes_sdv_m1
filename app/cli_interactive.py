@@ -249,7 +249,7 @@ def run_pipeline_interactive():
         validate=lambda x: len(x) > 0
     ).ask()
 
-    # Afficher les options en fonction du ou des tests sélectionnés
+    # Afficher les options en fonction du ou des tests sélectionnés et passer au suivant une fois les options renseignées
     for test in tests:
         console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
         if test == "nmap":
@@ -257,43 +257,40 @@ def run_pipeline_interactive():
                 "Additional nmap options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for nmap: {options}")
         elif test == "nikto":
             options = questionary.text(
                 "Additional nikto options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for nikto: {options}")
         elif test == "gobuster":
             options = questionary.text(
                 "Additional gobuster options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for gobuster: {options}")
         elif test == "sqlmap":
             options = questionary.text(
                 "Additional sqlmap options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for sqlmap: {options}")
         elif test == "hydra":
             options = questionary.text(
                 "Additional hydra options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for hydra: {options}")
         elif test == "john":
             options = questionary.text(
                 "Additional john options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for john: {options}")
         elif test == "ettercap":
             options = questionary.text(
                 "Additional ettercap options (leave empty for defaults):",
                 default=""
             ).ask()
-            console.print(f"Options for ettercap: {options}")
+        else:
+            options = ""
+        console.print(f"[green]Options for {test.upper()} set[/green]")
+
 
 
     

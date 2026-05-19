@@ -37,6 +37,13 @@ if ! docker images | grep -q "$IMAGE_NAME"; then
     docker compose build
 fi
 
+# Build DVWA featured in the docker-compose.yml if needed
+DVWA_IMAGE="vulnerables/web-dvwa"
+if ! docker images | grep -q "$DVWA_IMAGE"; then
+    echo -e "${YELLOW}Pulling DVWA image...${NC}"
+    docker compose pull dvwa
+fi
+
 # Start DVWA if not running
 DVWA_CONTAINER=$(docker compose ps -q dvwa)
 
