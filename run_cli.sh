@@ -30,18 +30,21 @@ echo -e "${NC}"
 # Check if API service is running
 echo -e "${YELLOW}Checking Docker setup...${NC}"
 
-# Build the Docker image if needed
+# Build the Docker images (api and dvwa) if needed
 IMAGE_NAME="projet_etudes_sdv_m1-api"
-if ! docker images | grep -q "$IMAGE_NAME"; then
-    echo -e "${YELLOW}Building Docker image...${NC}"
-    docker compose build
+DVWA_IMAGE_NAME="vulnerables/web-dvwa"
+if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    echo -e "${YELLOW}Building API Docker image...${NC}"
+    docker compose build api
+else
+    echo -e "${GREEN}✓ API Docker image already exists.${NC}"
 fi
 
-# Build DVWA featured in the docker-compose.yml if needed
-DVWA_IMAGE="vulnerables/web-dvwa"
-if ! docker images | grep -q "$DVWA_IMAGE"; then
-    echo -e "${YELLOW}Pulling DVWA image...${NC}"
-    docker compose pull dvwa
+if [[ "$(docker images -q $DVWA_IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    echo -e "${YELLOW}Pulling DVWA Docker image...${NC}"
+    docker pull $DVWA_IMAGE_NAME
+else
+    echo -e "${GREEN}✓ DVWA Docker image already exists.${NC}"
 fi
 
 # Start DVWA if not running
