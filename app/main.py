@@ -7,6 +7,7 @@ from app.modules.john import run_john
 from app.modules.msfvenom import run_msfvenom
 from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
+from app.modules.searchsploit import run_searchsploit
 from app.modules.sqlmap import run_sqlmap
 from app.modules.ettercap import run_ettercap
 from app.modules.report import generate_pdf_report
@@ -100,11 +101,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional msfvenom options (quoted string)",
     )
 
+    searchsploit_parser = subparsers.add_parser("searchsploit", help="Run searchsploit vulnerability search")
+    searchsploit_parser.add_argument("target", help="Search term for searchsploit")
+    searchsploit_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional searchsploit options (quoted string)",
+    )
+
     pipeline_parser = subparsers.add_parser("pipeline", help="Run a pentest pipeline and generate PDF report")
     pipeline_parser.add_argument(
         "--tests",
         nargs="+",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit"],
         required=True,
         help="List of tests to run (space-separated)",
     )
@@ -145,6 +154,8 @@ def main() -> int:
         result = run_ettercap(args.target, args.options)
     elif args.command == "msfvenom":
         result = run_msfvenom(args.options)
+    elif args.command == "searchsploit":
+        result = run_searchsploit(args.target, args.options)
     elif args.command == "pipeline":
         # run selected tests and aggregate results
         results = {}
@@ -170,6 +181,8 @@ def main() -> int:
                     results["ettercap"] = run_ettercap(args.target, args.options)
                 elif test == "msfvenom":
                     results["msfvenom"] = run_msfvenom(args.options)
+                elif test == "searchsploit":
+                    results["searchsploit"] = run_searchsploit(args.target, args.options)
             except Exception as e:
                 results[test] = {"error": str(e)}
 

@@ -21,6 +21,7 @@ from app.modules.john import run_john
 from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
 from app.modules.sqlmap import run_sqlmap
+from app.modules.searchsploit import run_searchsploit
 from app.modules.report import generate_pdf_report
 
 
@@ -234,6 +235,28 @@ def run_msfvenom_interactive():
         console.print(f"[red]✗ Error: {str(e)}[/red]")
 
 
+def run_searchsploit_interactive():
+    """Interactive searchsploit vulnerability search"""
+    console.print("\n[bold cyan]=== SEARCHSPLOIT VULNERABILITY SEARCH ===[/bold cyan]")
+    
+    target = questionary.text(
+        "Enter search term for searchsploit:",
+        validate=lambda x: len(x) > 0
+    ).ask()
+
+    options = questionary.text(
+        "Additional searchsploit options (leave empty for defaults):",
+        default=""
+    ).ask()
+
+    console.print(f"\n[yellow]Running searchsploit for {target}...[/yellow]")
+    try:
+        result = run_searchsploit(target, options)
+        console.print(f"[green]✓ Searchsploit scan completed[/green]")
+        console.print(result)
+    except Exception as e:
+        console.print(f"[red]✗ Error: {str(e)}[/red]")
+
 def run_pipeline_interactive():
     """Interactive pipeline execution"""
     console.print("\n[bold cyan]=== PENTEST PIPELINE ===[/bold cyan]")
@@ -245,7 +268,7 @@ def run_pipeline_interactive():
     
     tests = questionary.checkbox(
         "Select tests to run:",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit"],
         validate=lambda x: len(x) > 0
     ).ask()
 
@@ -287,7 +310,12 @@ def run_pipeline_interactive():
                 "Additional ettercap options (leave empty for defaults):",
                 default=""
             ).ask()
-        else:
+        elif test == "searchsploit":
+            options = questionary.text(
+                "Additional searchsploit options (leave empty for defaults):",
+                default=""
+            ).ask()
+        else:       
             options = ""
         console.print(f"[green]Options for {test.upper()} set[/green]")
 
@@ -328,6 +356,8 @@ def run_pipeline_interactive():
                 results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
             elif test == "ettercap":
                 results["ettercap"] = run_ettercap(target, "")
+            elif test == "searchsploit":
+                results["searchsploit"] = run_searchsploit(target, "")
             else:
                 results[test] = {"error": "Unknown test selected"}
         except Exception as e:
@@ -365,6 +395,7 @@ def display_tools_info():
         ("SQLMAP", "SQL injection detection"),
         ("ETTERCAP", "Network discovery and MITM attacks"),
         ("MSFVENOM", "Payload generation"),
+        ("SEARCHSPLOIT", "Vulnerability search"),
         ("PIPELINE", "Run multiple tests & generate report"),
     ]
     
@@ -391,6 +422,7 @@ def main():
                 "🗄️  SQLMAP - SQL Injection",
                 "🕸️  ETTERCAP - Network Discovery",
                 "💀 MSFVENOM - Payload Generation",
+                "🔎 SEARCHSPLOIT - Vulnerability Search",
                 "📊 PIPELINE - Run Full Pipeline",
                 "ℹ️  Information",
                 "❌ Exit",
@@ -416,6 +448,8 @@ def main():
             run_ettercap_interactive()
         elif "MSFVENOM" in choice:
             run_msfvenom_interactive()
+        elif "SEARCHSPLOIT" in choice:
+            run_searchsploit_interactive()
         elif "Information" in choice:
             display_tools_info()
         elif "Exit" in choice:
