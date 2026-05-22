@@ -30,47 +30,36 @@ echo -e "${NC}"
 # Check if API service is running
 echo -e "${YELLOW}Checking Docker setup...${NC}"
 
-# Build the Docker images (api and dvwa) if needed
+# Build the Docker images api (and dvwa if requested by the user) if they don't exist, and start DVWA if it's not running
 IMAGE_NAME="projet_etudes_sdv_m1-api"
 DVWA_IMAGE_NAME="vulnerables/web-dvwa"
-if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^$IMAGE_NAME:"; then
     echo -e "${YELLOW}Building API Docker image...${NC}"
-    docker compose build
+    docker build -t "$IMAGE_NAME" -f Dockerfile .
+    echo -e "${GREEN}✓ API image built successfully${NC}"
 else
-    echo -e "${GREEN}✓ API Docker image already exists.${NC}"
+    echo -e "${GREEN}✓ API image already exists${NC}"
 fi
 
-if [[ "$(docker images -q $DVWA_IMAGE_NAME 2> /dev/null)" == "" ]]; then
-    echo -e "${YELLOW}Pulling DVWA Docker image...${NC}"
-    docker pull $DVWA_IMAGE_NAME
-else
-    echo -e "${GREEN}✓ DVWA Docker image already exists.${NC}"
-fi
-
-# Start DVWA if not running
-DVWA_CONTAINER=$(docker compose ps -q dvwa)
-
-if [ -z "$DVWA_CONTAINER" ]; then
-    echo -e "${YELLOW}Starting DVWA container...${NC}"
-    docker compose up -d dvwa
-else
-    DVWA_STATUS=$(docker inspect -f '{{.State.Running}}' "$DVWA_CONTAINER")
-
-    if [ "$DVWA_STATUS" != "true" ]; then
-        echo -e "${YELLOW}Starting existing DVWA container...${NC}"
-        docker compose start dvwa
+# Ask the user if they want to start DVWA
+read -p "Do you want to start DVWA (Damn Vulnerable Web Application)? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^$DVWA_IMAGE_NAME:"; then
+        echo -e "${YELLOW}Pulling DVWA Docker image...${NC}"
+        docker pull "$DVWA_IMAGE_NAME"
+        echo -e "${GREEN}✓ DVWA image pulled successfully${NC}"
+        docker compose up -d dvwa
+        echo -e "${GREEN}✓ DVWA service started${NC}"
+        # Wait a few seconds for DVWA to start and then give the user the ip and port
+        sleep 5
+        # Get the DVWA container IP address
+        DVWA_CONTAINER_ID=$(docker ps -qf "ancestor=$DVWA_IMAGE_NAME")
+        DVWA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$DVWA_CONTAINER_ID")
+        echo -e "${YELLOW}DVWA is running at http://$DVWA_IP:80${NC}"
     else
-        echo -e "${GREEN}✓ DVWA container is already running.${NC}"
+        echo -e "${GREEN}✓ DVWA image already exists${NC}"
     fi
-fi
-
-# Get the DVWA ip address from the docker-compose setup
-DVWA_IP=$(docker compose ps -q dvwa | xargs docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-if [ -z "$DVWA_IP" ]; then
-    echo -e "${RED}Error: Could not find DVWA container. Please ensure it is running.${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✓ Docker setup looks good. For testing, you can use the DVWA IP: ${DVWA_IP}${NC}"
 
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
