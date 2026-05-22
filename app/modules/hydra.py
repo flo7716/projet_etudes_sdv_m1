@@ -26,8 +26,7 @@ def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", 
         "hydra",
         "-l", user,
         "-P", passlist,
-        target,
-        "ssh"
+        target
     ]
     if options:
         command.extend(options.split())
