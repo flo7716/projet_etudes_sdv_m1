@@ -21,18 +21,28 @@ def parse_searchsploit(output):
         "exploits": results
     }
 
-def run_searchsploit(options=""):
+def run_searchsploit(target, options=""):
 
     command = [
-        "searchsploit"
+        "searchsploit",
+        target
     ]
     if options:
         command.extend(options.split())
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True
-    )
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True
+        )
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            "searchsploit is not installed or not available in PATH. "
+            "Install SearchSploit / exploitdb and try again."
+        ) from e
+
+    if result.returncode != 0 and result.stderr:
+        raise RuntimeError(f"searchsploit failed: {result.stderr.strip()}")
 
     return parse_searchsploit(result.stdout)

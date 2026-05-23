@@ -25,6 +25,7 @@ RUN apt update && apt install -y \
     john \
     wordlists \
     seclists \
+    exploitdb \
     && apt clean
 
 WORKDIR /app

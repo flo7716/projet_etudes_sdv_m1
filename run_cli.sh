@@ -42,7 +42,7 @@ else
 fi
 
 # Ask the user if they want to start DVWA
-read -p "Do you want to start DVWA (Damn Vulnerable Web Application)? (y/n) " -n 1 -r
+read -p "Do you want to start DVWA (Damn Vulnerable Web Application)? (y/n)  " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^$DVWA_IMAGE_NAME:"; then
@@ -55,11 +55,18 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         sleep 5
         # Get the DVWA container IP address
         DVWA_CONTAINER_ID=$(docker ps -qf "ancestor=$DVWA_IMAGE_NAME")
-        DVWA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$DVWA_CONTAINER_ID")
+        if [ -n "$DVWA_CONTAINER_ID" ]; then
         echo -e "${YELLOW}DVWA is running at http://$DVWA_IP:80${NC}"
+        echo -e "${YELLOW}Note: The above IP may not be accessible from your host if Docker uses a user-defined bridge network.${NC}"
+        echo -e "${YELLOW}If you used the default docker-compose setup, access DVWA at http://localhost:8080${NC}"
+            echo -e "${YELLOW}DVWA is running at http://$DVWA_IP:80${NC}"
+        else
+            echo -e "${RED}Error: DVWA container is not running.${NC}"
+        fi
     else
         echo -e "${GREEN}✓ DVWA image already exists${NC}"
     fi
+fi
 
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
