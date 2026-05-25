@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Interactive CLI** provides a user-friendly menu-driven interface for the Pentest Toolbox instead of typing complex Docker and command-line arguments.
+The **Swissknife Interactive CLI** provides a user-friendly menu-driven interface for the Pentest Toolbox instead of typing complex Docker and command-line arguments.
 
 ## Features
 
@@ -134,6 +134,15 @@ python -m app.cli_interactive
 - LPORT (listener port)
 - Additional options (optional such as RHOSTS, RPORTS, etc.)
 
+### 🔎 SEARCHSPLOIT - Vulnerability Search
+- Search for exploits in the Exploit Database
+- Quick access to exploit information
+
+**Parameters:**
+- Search query (e.g., software name, CVE ID)
+- Additional options (optional)
+
+
 ### 📊 PIPELINE - Full Pentest Pipeline
 - Run multiple tests in sequence
 - Generate comprehensive PDF report
@@ -163,6 +172,7 @@ python -m app.cli_interactive
     🗄️  SQLMAP - SQL Injection
     🌐 ETTERCAP - Network discovery and MITM attack
     🛡️ MSFVENOM - Payload generation
+    🔎 SEARCHSPLOIT - Vulnerability Search
     📊 PIPELINE - Run Full Pipeline
     ℹ️  Information
     ❌ Exit

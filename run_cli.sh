@@ -20,11 +20,15 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # Display banner
-echo -e "${CYAN}"
-echo "╔════════════════════════════════════════╗"
-echo "║    PENTEST TOOLBOX - Interactive CLI   ║"
-echo "║     Security Testing Framework         ║"
-echo "╚════════════════════════════════════════╝"
+echo -e "${RED}"
+echo "     ____________________________"
+echo " ___/  ________________________  \___"
+echo "/  _   _   _   _   _   _   _   _   _  \ /"
+echo "|_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_| /"
+echo "     \__________________________/"
+echo ""
+echo "    PENTEST TOOLBOX - SWISSKNIFE CLI"
+echo "    Security Testing Framework"
 echo -e "${NC}"
 
 # Check if API service is running
