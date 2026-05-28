@@ -127,3 +127,16 @@ def run_nmap(target, options=""):
             "error": "Impossible de parser le XML Nmap",
             "raw_output": result.stdout[:500]
         }
+
+
+def run_nmap_interactive():
+    target = prompt_text(
+        "Enter target host/IP:",
+        validate=lambda x: len(x) > 0,
+    )
+    options = prompt_text(
+        "Additional nmap options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning nmap scan on {target}...")
+    return run_nmap(target, options)
