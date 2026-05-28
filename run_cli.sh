@@ -19,18 +19,6 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Display banner
-echo -e "${RED}"
-echo "     ____________________________"
-echo " ___/  ________________________  \___"
-echo "/  _   _   _   _   _   _   _   _   _  \ /"
-echo "|_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_| /"
-echo "     \__________________________/"
-echo ""
-echo "    PENTEST TOOLBOX - SWISSKNIFE CLI"
-echo "    Security Testing Framework"
-echo -e "${NC}"
-
 # Check if API service is running
 echo -e "${YELLOW}Checking Docker setup...${NC}"
 
@@ -72,8 +60,23 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 fi
 
+#CLS
+clear
+
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
+# Display banner
+echo -e "${RED}"
+echo "     ____________________________"
+echo " ___/  ________________________  \___"
+echo "/  _   _   _   _   _   _   _   _   _  \ /"
+echo "|_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_| /"
+echo "     \__________________________/"
+echo ""
+echo "    PENTEST TOOLBOX - SWISSKNIFE CLI"
+echo "    Security Testing Framework"
+echo -e "${NC}"
+
 docker compose run -it --rm \
     -v "$(pwd)":/app \
     -w /app \
