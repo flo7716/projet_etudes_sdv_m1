@@ -33,6 +33,10 @@ else
     echo -e "${GREEN}✓ API image already exists${NC}"
 fi
 
+
+#CLS
+clear
+
 # Ask the user if they want to start DVWA
 read -p "Do you want to start DVWA (Damn Vulnerable Web Application)? (y/n)  " -n 1 -r
 echo
@@ -61,8 +65,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 fi
 
-#CLS
-clear
 
 # Run the interactive CLI directly in a Docker container
 echo -e "${GREEN}Launching interactive CLI...${NC}"
