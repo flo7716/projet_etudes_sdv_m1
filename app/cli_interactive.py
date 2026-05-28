@@ -31,9 +31,9 @@ console = Console()
 def display_banner():
     """Display welcome banner"""
     banner = Panel(
-        "[bold cyan]PENTEST TOOLBOX[/bold cyan]\n[green]Interactive CLI Interface[/green]",
+        "[bold red]SWISSKNIFE[/bold red]\n[green]Interactive CLI Interface[/green]",
         title="[bold]Welcome[/bold]",
-        border_style="cyan",
+        border_style="red",
     )
     console.print(banner)
 
