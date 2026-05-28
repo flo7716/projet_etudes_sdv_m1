@@ -3,6 +3,7 @@ import select
 import shlex
 import subprocess
 import json
+from app.modules.interactive import prompt_text
 
 def parse_sqlmap(output):
     # SQLmap output is complex, for simplicity, return raw output
@@ -82,3 +83,16 @@ def run_sqlmap(target, options=""):
         output_lines.append(f"[ERROR] {exc}\n")
 
     return parse_sqlmap("".join(output_lines))
+
+
+def run_sqlmap_interactive():
+    target = prompt_text(
+        "Enter target URL:",
+        validate=lambda x: len(x) > 0,
+    )
+    options = prompt_text(
+        "Additional sqlmap options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning sqlmap on {target}...")
+    return run_sqlmap(target, options)

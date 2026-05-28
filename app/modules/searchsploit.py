@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 
 def parse_searchsploit(output):
@@ -46,3 +47,16 @@ def run_searchsploit(target, options=""):
         raise RuntimeError(f"searchsploit failed: {result.stderr.strip()}")
 
     return parse_searchsploit(result.stdout)
+
+
+def run_searchsploit_interactive():
+    target = prompt_text(
+        "Enter search term for searchsploit:",
+        validate=lambda x: len(x) > 0,
+    )
+    options = prompt_text(
+        "Additional searchsploit options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning searchsploit for {target}...")
+    return run_searchsploit(target, options)

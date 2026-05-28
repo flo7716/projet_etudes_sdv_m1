@@ -4,8 +4,8 @@ Interactive CLI for Pentest Toolbox
 Provides a user-friendly menu-driven interface to run security testing tools
 """
 
-from app.modules.ettercap import run_ettercap
-from app.modules.msfvenom import run_msfvenom
+from app.modules.ettercap import run_ettercap, run_ettercap_interactive
+from app.modules.msfvenom import run_msfvenom, run_msfvenom_interactive
 import questionary
 from rich.console import Console
 from rich.panel import Panel
@@ -15,13 +15,13 @@ import sys
 import os
 from datetime import datetime, timezone
 
-from app.modules.gobuster import run_gobuster
-from app.modules.hydra import run_hydra
-from app.modules.john import run_john
-from app.modules.nikto import run_nikto
-from app.modules.nmap import run_nmap
-from app.modules.sqlmap import run_sqlmap
-from app.modules.searchsploit import run_searchsploit
+from app.modules.gobuster import run_gobuster, run_gobuster_interactive
+from app.modules.hydra import run_hydra, run_hydra_interactive
+from app.modules.john import run_john, run_john_interactive
+from app.modules.nikto import run_nikto, run_nikto_interactive
+from app.modules.nmap import run_nmap, run_nmap_interactive
+from app.modules.sqlmap import run_sqlmap, run_sqlmap_interactive
+from app.modules.searchsploit import run_searchsploit, run_searchsploit_interactive
 from app.modules.report import generate_pdf_report
 
 
@@ -38,224 +38,15 @@ def display_banner():
     console.print(banner)
 
 
-def run_nmap_interactive():
-    """Interactive nmap scan"""
-    console.print("\n[bold cyan]=== NMAP SCAN ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host/IP:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    options = questionary.text(
-        "Additional nmap options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running nmap scan on {target}...[/yellow]")
+def run_interactive_tool(interactive_func, label):
     try:
-        result = run_nmap(target, options)
-        console.print(f"[green]✓ Nmap scan completed[/green]")
+        result = interactive_func()
+        console.print(f"[green]✓ {label} completed[/green]")
         console.print(result)
     except Exception as e:
         console.print(f"[red]✗ Error: {str(e)}[/red]")
 
 
-def run_hydra_interactive():
-    """Interactive hydra brute-force"""
-    console.print("\n[bold cyan]=== HYDRA BRUTE-FORCE ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    user = questionary.text(
-        "Username to brute force:",
-        default="root"
-    ).ask()
-    
-    passlist = questionary.text(
-        "Password list path:",
-        default="/usr/share/wordlists/rockyou.txt"
-    ).ask()
-    
-    options = questionary.text(
-        "Additional hydra options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running hydra on {target}...[/yellow]")
-    try:
-        result = run_hydra(target, user, passlist, options)
-        console.print(f"[green]✓ Hydra scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-
-def run_john_interactive():
-    """Interactive john password cracking"""
-    console.print("\n[bold cyan]=== JOHN PASSWORD CRACKING ===[/bold cyan]")
-    
-    hash_file = questionary.text(
-        "Enter hash file path:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    wordlist = questionary.text(
-        "Wordlist path:",
-        default="/usr/share/john/password.lst"
-    ).ask()
-    
-    options = questionary.text(
-        "Additional john options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running john on {hash_file}...[/yellow]")
-    try:
-        result = run_john(hash_file, wordlist, options)
-        console.print(f"[green]✓ John scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-
-def run_nikto_interactive():
-    """Interactive nikto web scan"""
-    console.print("\n[bold cyan]=== NIKTO WEB SCAN ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host/URL:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    options = questionary.text(
-        "Additional nikto options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running nikto on {target}...[/yellow]")
-    try:
-        result = run_nikto(target, options)
-        console.print(f"[green]✓ Nikto scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-
-def run_gobuster_interactive():
-    """Interactive gobuster directory scan"""
-    console.print("\n[bold cyan]=== GOBUSTER DIRECTORY SCAN ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host/URL:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    wordlist = questionary.text(
-        "Wordlist path:",
-        default="/usr/share/wordlists/dirbuster/directory-list-1.0.txt"
-    ).ask()
-    
-    options = questionary.text(
-        "Additional gobuster options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running gobuster on {target}...[/yellow]")
-    try:
-        result = run_gobuster(target, wordlist, options)
-        console.print(f"[green]✓ Gobuster scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-
-def run_sqlmap_interactive():
-    """Interactive sqlmap injection scan"""
-    console.print("\n[bold cyan]=== SQLMAP INJECTION SCAN ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target URL:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    options = questionary.text(
-        "Additional sqlmap options (leave empty for defaults):",
-        default=""
-    ).ask()
-    
-    console.print(f"\n[yellow]Running sqlmap on {target}...[/yellow]")
-    try:
-        result = run_sqlmap(target, options)
-        console.print(f"[green]✓ Sqlmap scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-def run_ettercap_interactive():
-    """Interactive ettercap scan"""
-    console.print("\n[bold cyan]=== ETTERCAP NETWORK DISCOVERY ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host/IP range (e.g., 192.168.1.0/24):",
-        validate=lambda x: len(x) > 0
-    ).ask()
-
-    options = questionary.text(
-        "Additional ettercap options (leave empty for defaults):",
-        default=""
-    ).ask()
-
-    console.print(f"\n[yellow]Running ettercap on {target}...[/yellow]")
-    try:        
-        result = run_ettercap(target, options)
-        console.print(f"[green]✓ Ettercap scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-    
-def run_msfvenom_interactive():
-    """Interactive msfvenom payload generation"""
-    console.print("\n[bold cyan]=== MSFVENOM PAYLOAD GENERATION ===[/bold cyan]")
-    
-    options = questionary.text(
-        "Enter msfvenom options (e.g., -p windows/meterpreter/reverse_tcp LHOST=<IP>)",
-        default=""
-    ).ask()
-
-    console.print(f"\n[yellow]Generating payload with msfvenom...[/yellow]")
-    try:
-        result = run_msfvenom(options)
-        console.print(f"[green]✓ Payload generation completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
-
-
-def run_searchsploit_interactive():
-    """Interactive searchsploit vulnerability search"""
-    console.print("\n[bold cyan]=== SEARCHSPLOIT VULNERABILITY SEARCH ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter search term for searchsploit:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-
-    options = questionary.text(
-        "Additional searchsploit options (leave empty for defaults):",
-        default=""
-    ).ask()
-
-    console.print(f"\n[yellow]Running searchsploit for {target}...[/yellow]")
-    try:
-        result = run_searchsploit(target, options)
-        console.print(f"[green]✓ Searchsploit scan completed[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
 
 def run_pipeline_interactive():
     """Interactive pipeline execution"""
@@ -431,25 +222,25 @@ def main():
         ).ask()
         
         if "NMAP" in choice:
-            run_nmap_interactive()
+            run_interactive_tool(run_nmap_interactive, "Nmap scan")
         elif "HYDRA" in choice:
-            run_hydra_interactive()
+            run_interactive_tool(run_hydra_interactive, "Hydra scan")
         elif "JOHN" in choice:
-            run_john_interactive()
+            run_interactive_tool(run_john_interactive, "John scan")
         elif "NIKTO" in choice:
-            run_nikto_interactive()
+            run_interactive_tool(run_nikto_interactive, "Nikto scan")
         elif "GOBUSTER" in choice:
-            run_gobuster_interactive()
+            run_interactive_tool(run_gobuster_interactive, "Gobuster scan")
         elif "SQLMAP" in choice:
-            run_sqlmap_interactive()
+            run_interactive_tool(run_sqlmap_interactive, "Sqlmap scan")
         elif "PIPELINE" in choice:
             run_pipeline_interactive()
         elif "ETTERCAP" in choice:
-            run_ettercap_interactive()
+            run_interactive_tool(run_ettercap_interactive, "Ettercap scan")
         elif "MSFVENOM" in choice:
-            run_msfvenom_interactive()
+            run_interactive_tool(run_msfvenom_interactive, "Msfvenom generation")
         elif "SEARCHSPLOIT" in choice:
-            run_searchsploit_interactive()
+            run_interactive_tool(run_searchsploit_interactive, "Searchsploit scan")
         elif "Information" in choice:
             display_tools_info()
         elif "Exit" in choice:

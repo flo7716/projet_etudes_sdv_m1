@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 
 def parse_nmap(xml_output):

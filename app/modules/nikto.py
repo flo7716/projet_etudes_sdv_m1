@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 def parse_nikto(output):
 
@@ -39,3 +40,16 @@ def run_nikto(target, options=""):
     )
 
     return parse_nikto(result.stdout)
+
+
+def run_nikto_interactive():
+    target = prompt_text(
+        "Enter target host/URL:",
+        validate=lambda x: len(x) > 0,
+    )
+    options = prompt_text(
+        "Additional nikto options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning nikto on {target}...")
+    return run_nikto(target, options)

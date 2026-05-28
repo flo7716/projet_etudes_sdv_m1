@@ -1,5 +1,7 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
+
 
 def parse_hydra(output):
 
@@ -20,6 +22,7 @@ def parse_hydra(output):
         "cracked_passwords": results
     }
 
+
 def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", options=""):
 
     command = [
@@ -38,4 +41,25 @@ def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", 
     )
 
     return parse_hydra(result.stdout)
+
+
+def run_hydra_interactive():
+    target = prompt_text(
+        "Enter target host:",
+        validate=lambda x: len(x) > 0,
+    )
+    user = prompt_text(
+        "Username to brute force:",
+        default="root",
+    )
+    passlist = prompt_text(
+        "Password list path:",
+        default="/usr/share/wordlists/rockyou.txt",
+    )
+    options = prompt_text(
+        "Additional hydra options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning hydra on {target}...")
+    return run_hydra(target, user, passlist, options)
 

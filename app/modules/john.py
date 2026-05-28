@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 def parse_john(output):
 
@@ -38,3 +39,20 @@ def run_john(hash_file, wordlist, options=""):
     )
 
     return parse_john(result.stdout)
+
+
+def run_john_interactive():
+    hash_file = prompt_text(
+        "Enter hash file path:",
+        validate=lambda x: len(x) > 0,
+    )
+    wordlist = prompt_text(
+        "Wordlist path:",
+        default="/usr/share/john/password.lst",
+    )
+    options = prompt_text(
+        "Additional john options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning john on {hash_file}...")
+    return run_john(hash_file, wordlist, options)

@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 def parse_msfvenom(output):
 
@@ -35,3 +36,12 @@ def run_msfvenom(options=""):
     )
 
     return parse_msfvenom(result.stdout)
+
+
+def run_msfvenom_interactive():
+    options = prompt_text(
+        "Enter msfvenom options (e.g., -p windows/meterpreter/reverse_tcp LHOST=<IP>)",
+        default="",
+    )
+    print(f"\nGenerating payload with msfvenom...")
+    return run_msfvenom(options)

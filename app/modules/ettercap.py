@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 from sympy import root
 
@@ -35,3 +36,16 @@ def run_ettercap(target, options=""):
     )
 
     return parse_ettercap(result.stdout)
+
+
+def run_ettercap_interactive():
+    target = prompt_text(
+        "Enter target host/IP range (e.g., 192.168.1.0/24):",
+        validate=lambda x: len(x) > 0,
+    )
+    options = prompt_text(
+        "Additional ettercap options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning ettercap on {target}...")
+    return run_ettercap(target, options)

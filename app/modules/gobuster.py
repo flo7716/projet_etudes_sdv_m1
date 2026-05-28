@@ -1,5 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
+from app.modules.interactive import prompt_text
 
 def parse_gobuster(output):
     lines = output.splitlines()
@@ -44,3 +45,20 @@ def run_gobuster(target, wordlist="/usr/share/wordlists/dirbuster/directory-list
     )
 
     return parse_gobuster(result.stdout)
+
+
+def run_gobuster_interactive():
+    target = prompt_text(
+        "Enter target host/URL:",
+        validate=lambda x: len(x) > 0,
+    )
+    wordlist = prompt_text(
+        "Wordlist path:",
+        default="/usr/share/wordlists/dirbuster/directory-list-1.0.txt",
+    )
+    options = prompt_text(
+        "Additional gobuster options (leave empty for defaults):",
+        default="",
+    )
+    print(f"\nRunning gobuster on {target}...")
+    return run_gobuster(target, wordlist, options)
