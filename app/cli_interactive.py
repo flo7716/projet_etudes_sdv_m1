@@ -64,56 +64,68 @@ def run_pipeline_interactive():
         validate=lambda x: len(x) > 0
     ).ask()
 
+    pipeline_args = {}
+
     # Afficher les options en fonction du ou des tests sélectionnés et passer au suivant une fois les options renseignées
     for test in tests:
         console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
+        pipeline_args[test] = {"options": ""}
+
         if test == "nmap":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional nmap options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "nikto":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional nikto options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "gobuster":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional gobuster options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "sqlmap":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional sqlmap options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "hydra":
-            options = questionary.text(
+            pipeline_args[test]["passlist"] = questionary.text(
+                "Hydra password list path:",
+                default="/usr/share/wordlists/rockyou.txt",
+            ).ask()
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional hydra options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "john":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional john options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "ettercap":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional ettercap options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "searchsploit":
-            options = questionary.text(
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional searchsploit options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "ffuf":
-            options = questionary.text(
+            pipeline_args[test]["wordlist"] = questionary.text(
+                "Wordlist path:",
+                default="/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+            ).ask()
+            pipeline_args[test]["options"] = questionary.text(
                 "Additional ffuf options (leave empty for defaults):",
                 default=""
             ).ask()
-        else:       
-            options = ""
+        else:
+            pipeline_args[test]["options"] = ""
         console.print(f"[green]Options for {test.upper()} set[/green]")
 
 
@@ -139,22 +151,28 @@ def run_pipeline_interactive():
     results = {}
     for test in tests:
         try:
+            options = pipeline_args.get(test, {}).get("options", "")
+
             if test == "nmap":
-                results["nmap"] = run_nmap(target, "")
+                results["nmap"] = run_nmap(target, options)
             elif test == "nikto":
-                results["nikto"] = run_nikto(target, "")
+                results["nikto"] = run_nikto(target, options)
             elif test == "gobuster":
-                results["gobuster"] = run_gobuster(target, None, "")
+                results["gobuster"] = run_gobuster(target, None, options)
             elif test == "sqlmap":
-                results["sqlmap"] = run_sqlmap(target, "")
+                results["sqlmap"] = run_sqlmap(target, options)
             elif test == "hydra":
-                results["hydra"] = run_hydra(target, "root", None, "")
+                passlist = pipeline_args.get(test, {}).get("passlist", "/usr/share/wordlists/rockyou.txt")
+                results["hydra"] = run_hydra(target, "root", passlist, options)
             elif test == "john":
                 results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
             elif test == "ettercap":
-                results["ettercap"] = run_ettercap(target, "")
+                results["ettercap"] = run_ettercap(target, options)
             elif test == "searchsploit":
-                results["searchsploit"] = run_searchsploit(target, "")
+                results["searchsploit"] = run_searchsploit(target, options)
+            elif test == "ffuf":
+                wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
+                results["ffuf"] = run_ffuf(target, wordlist, options)
             else:
                 results[test] = {"error": "Unknown test selected"}
         except Exception as e:

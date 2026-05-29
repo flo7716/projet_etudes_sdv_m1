@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 import json
@@ -18,6 +19,7 @@ LATEX_TEMPLATE = r"""
 """
 
 TEMPLATE_PLACEHOLDER = "%%REPORT_CONTENT%%"
+TITLE_PLACEHOLDER = "%%REPORT_TITLE%%"
 
 
 def _escape_latex(text: str) -> str:
@@ -36,6 +38,24 @@ def _escape_latex(text: str) -> str:
     for k, v in replacements.items():
         text = text.replace(k, v)
     return text
+
+
+def _clean_text(text: str) -> str:
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+    text = ansi_escape.sub("", text)
+    return "".join(ch for ch in text if ch.isprintable() or ch in "\n\r\t")
+
+
+def _sanitize_data(data: Any) -> Any:
+    if isinstance(data, str):
+        return _clean_text(data)
+    if isinstance(data, dict):
+        return {k: _sanitize_data(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_sanitize_data(v) for v in data]
+    if isinstance(data, tuple):
+        return tuple(_sanitize_data(v) for v in data)
+    return data
 
 
 def _load_report_template() -> str:
@@ -70,10 +90,36 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
 
 def _render_verbatim(data: Any) -> str:
     try:
-        dump = json.dumps(data, ensure_ascii=False, indent=2)
+        dump = json.dumps(_sanitize_data(data), ensure_ascii=False, indent=2)
     except Exception:
-        dump = repr(data)
-    return "\\begin{verbatim}\n" + dump + "\n\\end{verbatim}"
+        dump = repr(_sanitize_data(data))
+    return "\\begin{Verbatim}[breaklines=true,fontsize=\\small]\n" + dump + "\n\\end{Verbatim}"
+
+
+def _render_itemize(data: Any) -> str:
+    if isinstance(data, dict):
+        lines = ["\\begin{itemize}"]
+        for key, value in data.items():
+            if isinstance(value, (str, int, float)) or value is None:
+                display_value = "" if value is None else str(value)
+                lines.append(f"  \\item \\textbf{{{_escape_latex(str(key))}}}: {_escape_latex(display_value)}")
+            elif isinstance(value, list) and all(isinstance(item, (str, int, float)) for item in value):
+                lines.append(f"  \\item \\textbf{{{_escape_latex(str(key))}}}:")
+                lines.append("    \\begin{itemize}")
+                for item in value:
+                    lines.append(f"      \\item {_escape_latex(str(item))}")
+                lines.append("    \\end{itemize}")
+            else:
+                lines.append(f"  \\item \\textbf{{{_escape_latex(str(key))}}}: {_escape_latex(str(value))}")
+        lines.append("\\end{itemize}")
+        return "\n".join(lines)
+    if isinstance(data, list):
+        lines = ["\\begin{itemize}"]
+        for item in data:
+            lines.append(f"  \\item {_escape_latex(str(item))}")
+        lines.append("\\end{itemize}")
+        return "\n".join(lines)
+    return _render_verbatim(data)
 
 
 def _format_service_info(service: dict) -> str:
@@ -135,8 +181,29 @@ def _render_tool_page(tool: str, data: Any) -> str:
     title = f"\\section*{{{_escape_latex(tool.title())}}}"
     if isinstance(data, dict) and data.get("error"):
         return title + "\n\\textbf{Error}: " + _escape_latex(str(data.get("error")))
+
     if tool == "nmap" and isinstance(data, dict):
         return title + "\n" + _render_nmap_data(data)
+
+    if tool in {"ffuf", "searchsploit"} and isinstance(data, dict):
+        summary_name = "vulnerabilities" if tool == "ffuf" else "exploits"
+        summary_count = data.get(f"{summary_name}_count", len(data.get(summary_name, [])))
+        parts = ["\\textbf{Summary}: " + _escape_latex(str(summary_count))]
+        if data.get(summary_name):
+            parts.append("\\subsection*{Details}")
+            parts.append(_render_itemize(data[summary_name]))
+        return title + "\n" + "\n".join(parts)
+
+    if tool == "hydra" and isinstance(data, dict):
+        parts = ["\\textbf{Cracked Passwords}: " + _escape_latex(str(data.get("cracked_passwords_count", 0)))]
+        if data.get("cracked_passwords"):
+            parts.append("\\subsection*{Passwords}")
+            parts.append(_render_itemize(data["cracked_passwords"]))
+        return title + "\n" + "\n".join(parts)
+
+    if isinstance(data, dict):
+        return title + "\n" + _render_itemize(data)
+
     return title + "\n" + _render_verbatim(data)
 
 
@@ -182,22 +249,22 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     else:
         tex = LATEX_TEMPLATE % tex_body
 
-    # If a title was provided, try to inject it into the LaTeX template
-    try:
-        import re
-
-        if title:
-            # replace existing \title{...} or insert after \documentclass{...}
-            if re.search(r"\\title\s*\{.*?\}", tex, flags=re.S):
-                tex = re.sub(r"\\title\s*\{.*?\}", f"\\title{{{_escape_latex(title)}}}", tex, flags=re.S)
-            else:
-                # insert title before \date or before \begin{document}
-                if "\\date" in tex:
-                    tex = tex.replace("\\date", f"\\title{{{_escape_latex(title)}}}\n\\date")
+    if title and TITLE_PLACEHOLDER in tex:
+        tex = tex.replace(TITLE_PLACEHOLDER, _escape_latex(title))
+    else:
+        # If no placeholder exists, try to inject the title into the template.
+        try:
+            if title:
+                if re.search(r"\\title\s*\{.*?\}", tex, flags=re.S):
+                    tex = re.sub(r"\\title\s*\{.*?\}", f"\\title{{{_escape_latex(title)}}}", tex, flags=re.S)
                 else:
                     tex = tex.replace("\\begin{document}", f"\\title{{{_escape_latex(title)}}}\n\\begin{document}")
-    except Exception:
-        pass
+
+            if "\\maketitle" in tex and "\\title" in tex and tex.find("\\maketitle") < tex.find("\\title"):
+                tex = tex.replace("\\maketitle", "", 1)
+                tex = tex.replace("\\begin{document}", "\\begin{document}\n\\maketitle", 1)
+        except Exception:
+            pass
 
     # ensure output directory exists
     out_dir = os.path.dirname(output_path)

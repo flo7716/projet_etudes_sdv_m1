@@ -114,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument(
         "--tests",
         nargs="+",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf"],
         required=True,
         help="List of tests to run (space-separated)",
     )
@@ -175,13 +175,15 @@ def main() -> int:
                     results["sqlmap"] = run_sqlmap(args.target, "")
                 elif test == "hydra":
                     # hydra requires a username and passlist; use defaults
-                    results["hydra"] = run_hydra(args.target, "root", None, "")
+                    results["hydra"] = run_hydra(args.target, "root", "/usr/share/wordlists/rockyou.txt", "")
                 elif test == "john":
                     # john typically uses a hash file; record that it's skipped when not provided
                     results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
                 elif test == "ettercap":
                     # ettercap requires a target; use the provided target
                     results["ettercap"] = run_ettercap(args.target, args.options)
+                elif test == "ffuf":
+                    results["ffuf"] = run_ffuf(args.target, "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", "")
                 elif test == "msfvenom":
                     results["msfvenom"] = run_msfvenom(args.options)
                 elif test == "searchsploit":
