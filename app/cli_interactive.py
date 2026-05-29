@@ -22,6 +22,7 @@ from app.modules.nikto import run_nikto, run_nikto_interactive
 from app.modules.nmap import run_nmap, run_nmap_interactive
 from app.modules.sqlmap import run_sqlmap, run_sqlmap_interactive
 from app.modules.searchsploit import run_searchsploit, run_searchsploit_interactive
+from app.modules.ffuf import run_ffuf, run_ffuf_interactive
 from app.modules.report import generate_pdf_report
 
 
@@ -59,7 +60,7 @@ def run_pipeline_interactive():
     
     tests = questionary.checkbox(
         "Select tests to run:",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf"],
         validate=lambda x: len(x) > 0
     ).ask()
 
@@ -104,6 +105,11 @@ def run_pipeline_interactive():
         elif test == "searchsploit":
             options = questionary.text(
                 "Additional searchsploit options (leave empty for defaults):",
+                default=""
+            ).ask()
+        elif test == "ffuf":
+            options = questionary.text(
+                "Additional ffuf options (leave empty for defaults):",
                 default=""
             ).ask()
         else:       
@@ -187,6 +193,7 @@ def display_tools_info():
         ("ETTERCAP", "Network discovery and MITM attacks"),
         ("MSFVENOM", "Payload generation"),
         ("SEARCHSPLOIT", "Vulnerability search"),
+        ("FFUF", "Fast web fuzzer"),
         ("PIPELINE", "Run multiple tests & generate report"),
     ]
     
@@ -215,6 +222,7 @@ def main():
                 "💀 MSFVENOM - Payload Generation",
                 "🔎 SEARCHSPLOIT - Vulnerability Search",
                 "📊 PIPELINE - Run Full Pipeline",
+                "🕷️  FFUF - Web Fuzzing",
                 "ℹ️  Information",
                 "❌ Exit",
             ],
@@ -241,6 +249,8 @@ def main():
             run_interactive_tool(run_msfvenom_interactive, "Msfvenom generation")
         elif "SEARCHSPLOIT" in choice:
             run_interactive_tool(run_searchsploit_interactive, "Searchsploit scan")
+        elif "FFUF" in choice:
+            run_interactive_tool(run_ffuf_interactive, "Ffuf scan")
         elif "Information" in choice:
             display_tools_info()
         elif "Exit" in choice:

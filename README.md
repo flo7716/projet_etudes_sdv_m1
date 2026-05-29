@@ -143,6 +143,15 @@ python -m app.cli_interactive
 - Additional options (optional)
 
 
+### 🕷️ FFUF - Web Fuzzing
+- Fast web fuzzer for directory and file discovery
+- Customizable request patterns and response matching
+
+**Parameters:**
+- Target URL (with FUZZ placeholder)
+- Wordlist path
+- Additional options (optional)
+
 ### 📊 PIPELINE - Full Pentest Pipeline
 - Run multiple tests in sequence
 - Generate comprehensive PDF report
@@ -173,6 +182,7 @@ python -m app.cli_interactive
     🌐 ETTERCAP - Network discovery and MITM attack
     🛡️ MSFVENOM - Payload generation
     🔎 SEARCHSPLOIT - Vulnerability Search
+    🕷️  FFUF - Web Fuzzing
     📊 PIPELINE - Run Full Pipeline
     ℹ️  Information
     ❌ Exit

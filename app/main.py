@@ -1,6 +1,7 @@
 import argparse
 import json
 
+from app.modules.ffuf import run_ffuf
 from app.modules.gobuster import run_gobuster
 from app.modules.hydra import run_hydra
 from app.modules.john import run_john
@@ -156,6 +157,8 @@ def main() -> int:
         result = run_msfvenom(args.options)
     elif args.command == "searchsploit":
         result = run_searchsploit(args.target, args.options)
+    elif args.command == "ffuf":
+        result = run_ffuf(args.target, args.wordlist, args.options)
     elif args.command == "pipeline":
         # run selected tests and aggregate results
         results = {}
