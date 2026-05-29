@@ -98,12 +98,9 @@ def _render_nmap_data(data: Dict[str, Any]) -> str:
             parts.append("\\textbf{Hostnames}: " + _escape_latex(", ".join(host["hostnames"])) + "\\")
         if host.get("addresses"):
             parts.append("\\textbf{Addresses}: " + _escape_latex(", ".join(host["addresses"])) + "\\")
-    if scan_info := data.get("scan_info"):
-        parts.append("\\textbf{Scan info}: " + _escape_latex(json.dumps(scan_info, ensure_ascii=False)) + "\\")
-    if scan_stats := data.get("scan_stats"):
-        parts.append("\\textbf{Scan statistics}: " + _escape_latex(json.dumps(scan_stats, ensure_ascii=False)) + "\\")
-    parts.append("\\textbf{Status}: " + _escape_latex(str(data.get("status", "unknown"))) + "\\")
-    parts.append("\\textbf{Open ports count}: " + _escape_latex(str(data.get("open_ports_count", 0))) + "\\")
+    parts.append("\\textbf{Host Status}: " + _escape_latex(str(data.get("status", "unknown"))) + "\\")
+    open_ports_count = data.get("open_ports_count", 0)
+    parts.append("\\textbf{Open Ports Found}: " + _escape_latex(str(open_ports_count)) + "\\")
     parts.append("\\subsection*{Open ports}")
     if data.get("open_ports"):
         parts.append("\\begin{itemize}")
@@ -194,6 +191,13 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
         tex_path = os.path.join(td, "report.tex")
         with open(tex_path, "w", encoding="utf-8") as f:
             f.write(tex)
+        
+        # Copy logo to temp directory if it exists
+        logo_src = os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg")
+        if os.path.exists(logo_src):
+            import shutil
+            logo_dst = os.path.join(td, "logo_sdv.jpg")
+            shutil.copy2(logo_src, logo_dst)
 
         # run pdflatex twice for cross-refs (if any)
         try:

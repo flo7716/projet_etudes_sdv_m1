@@ -26,13 +26,13 @@
 \maketitle
 
 % Insert the company logo (JPG) located on this directory
-
-\begin{figure}%                 use [hb] only if necceccary!
-  \centering
-  \includegraphics[width=10cm]{logo_sdv.jpg}
-  \caption{test figure}
-  \label{fig:test}
-\end{figure}
+\IfFileExists{logo_sdv.jpg}{%
+  \begin{figure}[h]
+    \centering
+    \includegraphics[width=10cm]{logo_sdv.jpg}
+    \label{fig:logo}
+  \end{figure}
+}{}
 
 \section{Introduction}
 
