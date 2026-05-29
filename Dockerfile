@@ -10,7 +10,6 @@ RUN apt update && apt install -y \
     nmap \
     hydra \
     gobuster \
-    dirb \
     dirbuster \
     ffuf \
     sqlmap \
