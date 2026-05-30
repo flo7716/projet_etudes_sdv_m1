@@ -7,14 +7,31 @@ def parse_nikto(output):
     results = []
 
     for line in output.splitlines():
-
-        if line.startswith("+") or line.startswith("-") or line.startswith("|"):
+        line = line.strip()
+        if line == "":
             continue
 
-        if line.strip() == "":
+        if line.startswith("-"):
             continue
 
-        results.append(line.strip())
+        if line.startswith("+"):
+            if any(skip in line for skip in [
+                "Target IP:",
+                "Target Hostname:",
+                "Target Port:",
+                "Platform:",
+                "Start Time:",
+                "Server:",
+                "Failed to check for updates"
+            ]):
+                continue
+            results.append(line[1:].strip())
+            continue
+
+        if line.startswith("|"):
+            continue
+
+        results.append(line)
 
     return {
         "vulnerabilities_count": len(results),
@@ -39,7 +56,8 @@ def run_nikto(target, options=""):
         text=True
     )
 
-    return parse_nikto(result.stdout)
+    output = "\n".join(filter(None, [result.stdout, result.stderr]))
+    return parse_nikto(output)
 
 
 def run_nikto_interactive():
