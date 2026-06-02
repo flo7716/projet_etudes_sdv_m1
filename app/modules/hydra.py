@@ -1,21 +1,25 @@
+import shlex
 import subprocess
-import xml.etree.ElementTree as ET
 from app.modules.interactive import prompt_text
 
 
 def parse_hydra(output):
-
     results = []
 
-    for line in output.splitlines():
-
-        if line.startswith("Hydra") or line.startswith("0 of") or line.startswith("1 of") or line.startswith("2 of") or line.startswith("3 of") or line.startswith("4 of") or line.startswith("5 of") or line.startswith("6 of") or line.startswith("7 of") or line.startswith("8 of") or line.startswith("9 of"):
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
             continue
 
-        if line.strip() == "":
+        lowered = line.lower()
+        if lowered.startswith("hydra") or lowered.startswith("hydra("):
             continue
-
-        results.append(line.strip())
+        if lowered.startswith("[data]") or lowered.startswith("[attempt]") or lowered.startswith("[warning]") or lowered.startswith("[error]"):
+            continue
+        if lowered.startswith("0 of ") or lowered.startswith("1 of ") or lowered.startswith("2 of ") or lowered.startswith("3 of ") or lowered.startswith("4 of ") or lowered.startswith("5 of ") or lowered.startswith("6 of ") or lowered.startswith("7 of ") or lowered.startswith("8 of ") or lowered.startswith("9 of "):
+            continue
+        if "login" in lowered and ("pass" in lowered or "password" in lowered):
+            results.append(line)
 
     return {
         "cracked_passwords_count": len(results),
@@ -32,15 +36,16 @@ def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", 
         target
     ]
     if options:
-        command.extend(options.split())
+        command.extend(shlex.split(options))
 
     result = subprocess.run(
         command,
-        capture_output=True,
-        text=True
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
-    return parse_hydra(result.stdout)
+    return parse_hydra(result.stdout or "")
 
 
 def run_hydra_interactive():
