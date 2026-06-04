@@ -23,6 +23,7 @@ from app.modules.nmap import run_nmap, run_nmap_interactive
 from app.modules.sqlmap import run_sqlmap, run_sqlmap_interactive
 from app.modules.searchsploit import run_searchsploit, run_searchsploit_interactive
 from app.modules.ffuf import run_ffuf, run_ffuf_interactive
+from app.modules.sslyze import run_sslyze, run_sslyze_interactive
 from app.modules.report import generate_pdf_report
 
 
@@ -60,7 +61,7 @@ def run_pipeline_interactive():
     
     tests = questionary.checkbox(
         "Select tests to run:",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf", "sslyze"],
         validate=lambda x: len(x) > 0
     ).ask()
 
@@ -124,6 +125,11 @@ def run_pipeline_interactive():
                 "Additional ffuf options (leave empty for defaults):",
                 default=""
             ).ask()
+        elif test == "sslyze":
+            pipeline_args[test]["options"] = questionary.text(
+                "Additional sslyze options (leave empty for defaults):",
+                default=""
+            ).ask()
         else:
             pipeline_args[test]["options"] = ""
         console.print(f"[green]Options for {test.upper()} set[/green]")
@@ -173,6 +179,8 @@ def run_pipeline_interactive():
             elif test == "ffuf":
                 wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
                 results["ffuf"] = run_ffuf(target, wordlist, options)
+            elif test == "sslyze":
+                results["sslyze"] = run_sslyze(target, options)
             else:
                 results[test] = {"error": "Unknown test selected"}
         except Exception as e:
@@ -241,6 +249,7 @@ def main():
                 "🔎 SEARCHSPLOIT - Vulnerability Search",
                 "📊 PIPELINE - Run Full Pipeline",
                 "🕷️  FFUF - Web Fuzzing",
+                "🔒 SSLYZE - SSL/TLS Analysis",
                 "ℹ️  Information",
                 "❌ Exit",
             ],
@@ -269,6 +278,8 @@ def main():
             run_interactive_tool(run_searchsploit_interactive, "Searchsploit scan")
         elif "FFUF" in choice:
             run_interactive_tool(run_ffuf_interactive, "Ffuf scan")
+        elif "SSLYZE" in choice:
+            run_interactive_tool(run_sslyze_interactive, "Sslyze scan")
         elif "Information" in choice:
             display_tools_info()
         elif "Exit" in choice:

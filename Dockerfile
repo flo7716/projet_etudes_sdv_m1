@@ -25,6 +25,7 @@ RUN apt update && apt install -y \
     wordlists \
     seclists \
     exploitdb \
+    sslyze \
     && apt clean
 
 WORKDIR /app
