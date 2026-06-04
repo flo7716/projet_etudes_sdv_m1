@@ -11,5 +11,10 @@ services:
 
   dvwa:
     image: vulnerables/web-dvwa
+    entrypoint:
+      - /bin/sh
+      - -c
+      - a2enmod ssl && a2ensite default-ssl && exec /main.sh
     ports:
       - "8080:80"
+      - "8443:443"

@@ -52,11 +52,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         # Get the DVWA container IP address
         DVWA_CONTAINER_ID=$(docker ps -qf "ancestor=$DVWA_IMAGE_NAME")
         if [ -n "$DVWA_CONTAINER_ID" ]; then
-        DVWA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$DVWA_CONTAINER_ID")
-        echo -e "${YELLOW}DVWA is running at http://$DVWA_IP:80${NC}"
-        echo -e "${YELLOW}Note: The above IP may not be accessible from your host if Docker uses a user-defined bridge network.${NC}"
-        echo -e "${YELLOW}If you used the default docker-compose setup, access DVWA at http://localhost:8080${NC}"
-            echo -e "${YELLOW}DVWA is running at http://$DVWA_IP:80${NC}"
+            DVWA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$DVWA_CONTAINER_ID")
+            echo -e "${YELLOW}DVWA is running at https://$DVWA_IP:443${NC}"
+            echo -e "${YELLOW}From your host, use https://localhost:8443${NC}"
+            echo -e "${YELLOW}The HTTP port 8080 is still available for compatibility.${NC}"
         else
             echo -e "${RED}Error: DVWA container is not running.${NC}"
         fi
