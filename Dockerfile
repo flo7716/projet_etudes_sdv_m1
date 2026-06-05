@@ -26,6 +26,8 @@ RUN apt update && apt install -y \
     seclists \
     exploitdb \
     sslyze \
+    tshark \
+    clamav \
     && apt clean
 
 WORKDIR /app
