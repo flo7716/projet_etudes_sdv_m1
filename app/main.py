@@ -11,6 +11,10 @@ from app.modules.nmap import run_nmap
 from app.modules.searchsploit import run_searchsploit
 from app.modules.sqlmap import run_sqlmap
 from app.modules.ettercap import run_ettercap
+from app.modules.sslyze import run_sslyze
+from app.modules.tshark import run_tshark
+from app.modules.clamscan import run_clamscan
+from app.modules.ffuf import run_ffuf
 from app.modules.report import generate_pdf_report
 from datetime import datetime, timezone
 
@@ -110,6 +114,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional searchsploit options (quoted string)",
     )
 
+    ffuf_parser = subparsers.add_parser("ffuf", help="Run ffuf fuzzing scan")
+    ffuf_parser.add_argument("target", help="Target URL for ffuf")
+    ffuf_parser.add_argument(
+        "--wordlist",
+        default="/usr/share/wordlists/rockyou.txt",
+        help="Wordlist for ffuf",
+    )
+    ffuf_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional ffuf options (quoted string)",
+    )
+
+    sslyze_parser = subparsers.add_parser("sslyze", help="Run sslyze SSL/TLS scan")
+    sslyze_parser.add_argument("target", help="Target host for sslyze")
+    sslyze_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional sslyze options (quoted string)",
+    )
+
+    tshark_parser = subparsers.add_parser("tshark", help="Run tshark packet analysis")
+    tshark_parser.add_argument("target", help="Path to pcap file for tshark")
+    tshark_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional tshark options (quoted string)",
+    )
+
+    clamscan_parser = subparsers.add_parser("clamscan", help="Run clamscan malware scan")
+    clamscan_parser.add_argument("target", help="Path to file or directory for clamscan")
+    clamscan_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional clamscan options (quoted string)",
+    )
+
+
+
     pipeline_parser = subparsers.add_parser("pipeline", help="Run a pentest pipeline and generate PDF report")
     pipeline_parser.add_argument(
         "--tests",
@@ -159,6 +202,12 @@ def main() -> int:
         result = run_searchsploit(args.target, args.options)
     elif args.command == "ffuf":
         result = run_ffuf(args.target, args.wordlist, args.options)
+    elif args.command == "sslyze":
+        result = run_sslyze(args.target, args.options)
+    elif args.command == "tshark":
+        result = run_tshark(args.target, args.options)
+    elif args.command == "clamscan":
+        result = run_clamscan(args.target, args.options)
     elif args.command == "pipeline":
         # run selected tests and aggregate results
         results = {}
@@ -188,6 +237,12 @@ def main() -> int:
                     results["msfvenom"] = run_msfvenom(args.options)
                 elif test == "searchsploit":
                     results["searchsploit"] = run_searchsploit(args.target, args.options)
+                elif test == "sslyze":
+                    results["sslyze"] = run_sslyze(args.target, args.options)
+                elif test == "tshark":
+                    results["tshark"] = run_tshark(args.target, args.options)
+                elif test == "clamscan":
+                    results["clamscan"] = run_clamscan(args.target, args.options)
             except Exception as e:
                 results[test] = {"error": str(e)}
 
