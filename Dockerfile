@@ -32,6 +32,9 @@ RUN apt update && apt install -y \
 
 WORKDIR /app
 
+# Dézippage de rockyou.txt.gz
+RUN gunzip -k /usr/share/wordlists/rockyou.txt.gz
+
 # Backend
 COPY requirements.txt .
 RUN pip3 install --break-system-packages -r requirements.txt

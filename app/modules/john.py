@@ -12,14 +12,15 @@ def parse_john(output):
     results = []
 
     for line in output.splitlines():
+        stripped = line.strip()
 
-        if line.startswith("Loaded") or line.startswith("No password hashes") or line.startswith("guesses") or line.startswith("0g 0p") or line.startswith("0g 0p") or line.startswith("0g 0t") or line.startswith("0g 0c"):
+        if not stripped:
             continue
 
-        if line.strip() == "":
+        if stripped.startswith("Loaded") or stripped.startswith("No password hashes") or stripped.startswith("guesses") or stripped.startswith("0g ") or stripped.startswith("Warning:") or stripped.startswith("Press '") or stripped.startswith("Use the") or stripped.startswith("Session completed"):
             continue
 
-        results.append(line.strip())
+        results.append(stripped)
 
     return {
         "cracked_passwords_count": len(results),
@@ -115,7 +116,7 @@ def run_john(hash_file, wordlist, options="", target_type="Basic hash", archive_
         ]
 
         result = subprocess.run(command, capture_output=True, text=True)
-        return parse_john(result.stdout)
+        return parse_john(result.stdout + (result.stderr or ""))
     finally:
         if temp_hash_file and temp_hash_file != hash_file and os.path.exists(temp_hash_file):
             os.remove(temp_hash_file)
