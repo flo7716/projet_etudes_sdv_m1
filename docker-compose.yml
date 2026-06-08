@@ -5,6 +5,9 @@ services:
     # Use docker compose run api <command> to execute CLI subcommands
     volumes:
       - ./:/app
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     stdin_open: true
     tty: true
     command: tail -f /dev/null
