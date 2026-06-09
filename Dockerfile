@@ -2,8 +2,9 @@ FROM kalilinux/kali-rolling
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Outils système + Python + Node.js
-RUN apt update && apt install -y \
+# Security tooling + Python runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     python3 \
     python3-pip \
     python3-venv \
@@ -19,7 +20,8 @@ RUN apt update && apt install -y \
     texlive-fonts-recommended \
     curl \
     git \
-    ettercap-common \
+    nuclei \
+    aircrack-ng \
     metasploit-framework \
     john \
     wordlists \
@@ -28,7 +30,8 @@ RUN apt update && apt install -y \
     sslyze \
     tshark \
     clamav \
-    && apt clean
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

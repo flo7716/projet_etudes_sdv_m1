@@ -116,12 +116,20 @@ python -m app.cli_interactive
 
 ---
 
-### 🌐 ETTERCAP - Network discovery and MITM attack
-- Network sniffing and MITM attacks
-- Host discovery and traffic analysis
+### 📶 AIRCRACK-NG - Wireless testing
+- Wireless capture analysis and cracking support
+- Useful for auditing captured handshakes
 
 **Parameters:**
-- Target network range
+- Capture file or handshake path
+- Additional options (optional)
+
+### 🧪 NUCLEI - Vulnerability scanning
+- Fast, template-based vulnerability discovery
+- Great for web and infrastructure checks
+
+**Parameters:**
+- Target URL or host
 - Additional options (optional)
 
 ### 🛡️ MSFVENOM - Payload generation
@@ -152,6 +160,31 @@ python -m app.cli_interactive
 - Wordlist path
 - Additional options (optional)
 
+
+### 🛡️ CLAMSCAN - Antivirus Scanning
+- Scans files for malware and viruses
+- Supports multiple file formats
+
+**Parameters:**
+- File or directory path to scan
+- Additional options (optional)
+
+### 🔓 SSLYZE - SSL/TLS scanning
+- Analyzes SSL/TLS configurations of servers
+- Checks for vulnerabilities and misconfigurations
+
+**Parameters:**
+- Target host/URL
+- Additional options (optional)
+
+### 🦈 TSHARK - Packet inspection
+- Network packet capture and analysis
+- Supports various protocols and filters
+**Parameters:**
+- Network interface to capture on
+- Capture duration (optional)
+- Additional options (optional)
+
 ### 📊 PIPELINE - Full Pentest Pipeline
 - Run multiple tests in sequence
 - Generate comprehensive PDF report
@@ -179,7 +212,8 @@ python -m app.cli_interactive
     🕷️  NIKTO - Web Scanning
     📁 GOBUSTER - Directory Scanning
     🗄️  SQLMAP - SQL Injection
-    🌐 ETTERCAP - Network discovery and MITM attack
+    📶 AIRCRACK-NG - Wireless testing
+    🧪 NUCLEI - Vulnerability scanning
     🛡️ MSFVENOM - Payload generation
     🔎 SEARCHSPLOIT - Vulnerability Search
     🕷️  FFUF - Web Fuzzing

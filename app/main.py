@@ -10,7 +10,8 @@ from app.modules.nikto import run_nikto
 from app.modules.nmap import run_nmap
 from app.modules.searchsploit import run_searchsploit
 from app.modules.sqlmap import run_sqlmap
-from app.modules.ettercap import run_ettercap
+from app.modules.aircrack_ng import run_aircrack_ng
+from app.modules.nuclei import run_nuclei
 from app.modules.sslyze import run_sslyze
 from app.modules.tshark import run_tshark
 from app.modules.clamscan import run_clamscan
@@ -91,12 +92,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional sqlmap options (quoted string)",
     )
 
-    ettercap_parser = subparsers.add_parser("ettercap", help="Run ettercap network scan")
-    ettercap_parser.add_argument("target", help="Target host or IP for ettercap")
-    ettercap_parser.add_argument(
+    aircrack_parser = subparsers.add_parser("aircrack_ng", help="Run an aircrack-ng scan")
+    aircrack_parser.add_argument("target", help="Capture file or handshake path for aircrack-ng")
+    aircrack_parser.add_argument(
         "--options",
         default="",
-        help="Additional ettercap options (quoted string)",
+        help="Additional aircrack-ng options (quoted string)",
+    )
+
+    nuclei_parser = subparsers.add_parser("nuclei", help="Run a nuclei vulnerability scan")
+    nuclei_parser.add_argument("target", help="Target URL or host for nuclei")
+    nuclei_parser.add_argument(
+        "--options",
+        default="",
+        help="Additional nuclei options (quoted string)",
     )
 
     msfvenom_parser = subparsers.add_parser("msfvenom", help="Run msfvenom payload generation")
@@ -157,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument(
         "--tests",
         nargs="+",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "aircrack_ng", "nuclei", "searchsploit", "ffuf"],
         required=True,
         help="List of tests to run (space-separated)",
     )
@@ -194,8 +203,10 @@ def main() -> int:
         result = run_gobuster(args.target, args.wordlist, args.options)
     elif args.command == "sqlmap":
         result = run_sqlmap(args.target, args.options)
-    elif args.command == "ettercap":
-        result = run_ettercap(args.target, args.options)
+    elif args.command == "aircrack_ng":
+        result = run_aircrack_ng(args.target, args.options)
+    elif args.command == "nuclei":
+        result = run_nuclei(args.target, args.options)
     elif args.command == "msfvenom":
         result = run_msfvenom(args.options)
     elif args.command == "searchsploit":
@@ -228,9 +239,10 @@ def main() -> int:
                 elif test == "john":
                     # john typically uses a hash file; record that it's skipped when not provided
                     results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
-                elif test == "ettercap":
-                    # ettercap requires a target; use the provided target
-                    results["ettercap"] = run_ettercap(args.target, args.options)
+                elif test == "aircrack_ng":
+                    results["aircrack_ng"] = run_aircrack_ng(args.target, "")
+                elif test == "nuclei":
+                    results["nuclei"] = run_nuclei(args.target, "")
                 elif test == "ffuf":
                     results["ffuf"] = run_ffuf(args.target, "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", "")
                 elif test == "msfvenom":

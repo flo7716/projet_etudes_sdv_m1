@@ -4,7 +4,8 @@ Interactive CLI for Pentest Toolbox
 Provides a user-friendly menu-driven interface to run security testing tools
 """
 
-from app.modules.ettercap import run_ettercap, run_ettercap_interactive
+from app.modules.aircrack_ng import run_aircrack_ng, run_aircrack_ng_interactive
+from app.modules.nuclei import run_nuclei, run_nuclei_interactive
 from app.modules.msfvenom import run_msfvenom, run_msfvenom_interactive
 import questionary
 from rich.console import Console
@@ -63,7 +64,7 @@ def run_pipeline_interactive():
     
     tests = questionary.checkbox(
         "Select tests to run:",
-        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "ettercap", "searchsploit", "ffuf", "sslyze", "tshark", "clamscan"],
+        choices=["nmap", "nikto", "gobuster", "sqlmap", "hydra", "john", "aircrack_ng", "nuclei", "searchsploit", "ffuf", "sslyze", "tshark", "clamscan"],
         validate=lambda x: len(x) > 0
     ).ask()
 
@@ -108,9 +109,14 @@ def run_pipeline_interactive():
                 "Additional john options (leave empty for defaults):",
                 default=""
             ).ask()
-        elif test == "ettercap":
+        elif test == "aircrack_ng":
             pipeline_args[test]["options"] = questionary.text(
-                "Additional ettercap options (leave empty for defaults):",
+                "Additional aircrack-ng options (leave empty for defaults):",
+                default=""
+            ).ask()
+        elif test == "nuclei":
+            pipeline_args[test]["options"] = questionary.text(
+                "Additional nuclei options (leave empty for defaults):",
                 default=""
             ).ask()
         elif test == "searchsploit":
@@ -184,8 +190,10 @@ def run_pipeline_interactive():
                 results["hydra"] = run_hydra(target, "root", passlist, options)
             elif test == "john":
                 results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
-            elif test == "ettercap":
-                results["ettercap"] = run_ettercap(target, options)
+            elif test == "aircrack_ng":
+                results["aircrack_ng"] = run_aircrack_ng(target, options)
+            elif test == "nuclei":
+                results["nuclei"] = run_nuclei(target, options)
             elif test == "searchsploit":
                 results["searchsploit"] = run_searchsploit(target, options)
             elif test == "ffuf":
@@ -234,7 +242,8 @@ def display_tools_info():
         ("NIKTO", "Web server scanner"),
         ("GOBUSTER", "Directory/file brute-forcing"),
         ("SQLMAP", "SQL injection detection"),
-        ("ETTERCAP", "Network discovery and MITM attacks"),
+        ("AIRCRACK-NG", "Wireless capture and cracking"),
+        ("NUCLEI", "Fast vulnerability scanning"),
         ("MSFVENOM", "Payload generation"),
         ("SEARCHSPLOIT", "Vulnerability search"),
         ("FFUF", "Fast web fuzzer"),
@@ -265,7 +274,8 @@ def main():
                 "🕷️  NIKTO - Web Scanning",
                 "📁 GOBUSTER - Directory Scanning",
                 "🗄️  SQLMAP - SQL Injection",
-                "🕸️  ETTERCAP - Network Discovery",
+                "  AIRCRACK-NG - Wireless Testing",
+                "🧪  NUCLEI - Vulnerability Scanning",
                 "💀 MSFVENOM - Payload Generation",
                 "🔎 SEARCHSPLOIT - Vulnerability Search",
                 "📊 PIPELINE - Run Full Pipeline",
@@ -293,8 +303,10 @@ def main():
             run_interactive_tool(run_sqlmap_interactive, "Sqlmap scan")
         elif "PIPELINE" in choice:
             run_pipeline_interactive()
-        elif "ETTERCAP" in choice:
-            run_interactive_tool(run_ettercap_interactive, "Ettercap scan")
+        elif "AIRCRACK-NG" in choice:
+            run_interactive_tool(run_aircrack_ng_interactive, "aircrack-ng scan")
+        elif "NUCLEI" in choice:
+            run_interactive_tool(run_nuclei_interactive, "nuclei scan")
         elif "MSFVENOM" in choice:
             run_interactive_tool(run_msfvenom_interactive, "Msfvenom generation")
         elif "SEARCHSPLOIT" in choice:
