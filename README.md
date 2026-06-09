@@ -124,6 +124,8 @@ python -m app.cli_interactive
 - Capture file or handshake path
 - Additional options (optional)
 
+---
+
 ### 🧪 NUCLEI - Vulnerability scanning
 - Fast, template-based vulnerability discovery
 - Great for web and infrastructure checks
@@ -131,6 +133,8 @@ python -m app.cli_interactive
 **Parameters:**
 - Target URL or host
 - Additional options (optional)
+
+---
 
 ### 🛡️ MSFVENOM - Payload generation
 - Generates payloads for various platforms
@@ -142,6 +146,8 @@ python -m app.cli_interactive
 - LPORT (listener port)
 - Additional options (optional such as RHOSTS, RPORTS, etc.)
 
+---
+
 ### 🔎 SEARCHSPLOIT - Vulnerability Search
 - Search for exploits in the Exploit Database
 - Quick access to exploit information
@@ -150,6 +156,7 @@ python -m app.cli_interactive
 - Search query (e.g., software name, CVE ID)
 - Additional options (optional)
 
+---
 
 ### 🕷️ FFUF - Web Fuzzing
 - Fast web fuzzer for directory and file discovery
@@ -160,6 +167,7 @@ python -m app.cli_interactive
 - Wordlist path
 - Additional options (optional)
 
+---
 
 ### 🛡️ CLAMSCAN - Antivirus Scanning
 - Scans files for malware and viruses
@@ -169,6 +177,8 @@ python -m app.cli_interactive
 - File or directory path to scan
 - Additional options (optional)
 
+---
+
 ### 🔓 SSLYZE - SSL/TLS scanning
 - Analyzes SSL/TLS configurations of servers
 - Checks for vulnerabilities and misconfigurations
@@ -177,6 +187,8 @@ python -m app.cli_interactive
 - Target host/URL
 - Additional options (optional)
 
+---
+
 ### 🦈 TSHARK - Packet inspection
 - Network packet capture and analysis
 - Supports various protocols and filters
@@ -184,6 +196,8 @@ python -m app.cli_interactive
 - Network interface to capture on
 - Capture duration (optional)
 - Additional options (optional)
+
+---
 
 ### 📊 PIPELINE - Full Pentest Pipeline
 - Run multiple tests in sequence
