@@ -38,6 +38,10 @@ WORKDIR /app
 # Dézippage de rockyou.txt.gz
 RUN gunzip -k /usr/share/wordlists/rockyou.txt.gz
 
+# Installation des templates Nuclei
+RUN git clone https://github.com/projectdiscovery/nuclei-templates.git /root/.local/nuclei-templates
+RUN nuclei -update-templates
+
 # Backend
 COPY requirements.txt .
 RUN pip3 install --break-system-packages -r requirements.txt

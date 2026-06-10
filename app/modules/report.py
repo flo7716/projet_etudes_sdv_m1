@@ -258,7 +258,10 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
                 if re.search(r"\\title\s*\{.*?\}", tex, flags=re.S):
                     tex = re.sub(r"\\title\s*\{.*?\}", f"\\title{{{_escape_latex(title)}}}", tex, flags=re.S)
                 else:
-                    tex = tex.replace("\\begin{document}", f"\\title{{{_escape_latex(title)}}}\n\\begin{document}")
+                    tex = tex.replace(
+                        "\\begin{document}",
+                        f"\\title{{{_escape_latex(title)}}}\n\\begin{{document}}",
+                    )
 
             if "\\maketitle" in tex and "\\title" in tex and tex.find("\\maketitle") < tex.find("\\title"):
                 tex = tex.replace("\\maketitle", "", 1)
@@ -297,24 +300,16 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
                 )
                 last_stdout = proc.stdout
                 last_stderr = proc.stderr
-                # if pdflatex failed but still produced a PDF, continue
-                if proc.returncode != 0 and not os.path.exists(generated_pdf):
-                    # attempt a fallback to ReportLab-based PDF generation
-                    fallback_info = _reportlab_fallback(results, title, output_path, td)
-                    if fallback_info.get("error"):
-                        return {"error": "pdflatex failed", "log": proc.stdout + proc.stderr, **fallback_info}
-                    else:
-                        last_stdout = proc.stdout
-                        last_stderr = proc.stderr
-                        # move fallback PDF into output_path (already handled by fallback)
-                        # continue to post-processing using generated file
-                        generated_pdf = output_path
-                        break
+
+                if proc.returncode != 0:
+                    return {
+                        "error": "pdflatex failed",
+                        "log": proc.stdout + proc.stderr,
+                    }
             # move to output path
             try:
                 os.replace(generated_pdf, output_path)
             except OSError as e:
-                # fallback when tmpdir and output are on different filesystems
                 import shutil
                 import errno
 
@@ -365,99 +360,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             return info
 
         except FileNotFoundError:
-            # pdflatex not found; try ReportLab fallback
-            return _reportlab_fallback(results, title, output_path, None)
+            return {"error": "pdflatex not found"}
         except Exception as e:
             return {"error": str(e)}
-
-
-    def _reportlab_fallback(results: Dict[str, Any], title: str, output_path: str, work_dir: str | None) -> Dict[str, Any]:
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.pdfgen import canvas
-            from reportlab.lib.units import mm
-        except Exception:
-            return {"error": "reportlab not available for fallback PDF generation"}
-
-        # determine target path
-        target = output_path if work_dir is None else os.path.join(work_dir, "report_fallback.pdf")
-
-        try:
-            c = canvas.Canvas(target, pagesize=A4)
-            width, height = A4
-            margin = 20 * mm
-
-            # draw logo if available
-            logo_src = os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg")
-            if os.path.exists(logo_src):
-                try:
-                    # position top-right
-                    logo_w = 40 * mm
-                    logo_h = 40 * mm
-                    c.drawImage(logo_src, width - margin - logo_w, height - margin - logo_h, width=logo_w, height=logo_h)
-                except Exception:
-                    pass
-
-            # title
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(margin, height - margin - 10 * mm, title or "Pentest Report")
-
-            # content
-            import textwrap
-
-            y = height - margin - 25 * mm
-            c.setFont("Helvetica", 10)
-            # summary
-            summary_lines = ["Summary:"]
-            for tool in sorted(results.keys()):
-                data = results[tool]
-                status = "Completed"
-                if isinstance(data, dict):
-                    if data.get("error"):
-                        status = f"Error: {data['error']}"
-                    elif data.get("note"):
-                        status = data["note"]
-                summary_lines.append(f"- {tool}: {status}")
-
-            # write lines with wrapping and basic pagination
-            lines = []
-            lines.extend(summary_lines)
-            lines.append("")
-            for tool, data in results.items():
-                lines.append(f"{tool.upper()}")
-                try:
-                    dump = json.dumps(data, ensure_ascii=False, indent=2)
-                except Exception:
-                    dump = repr(data)
-                for dl in dump.splitlines():
-                    wrapped = textwrap.wrap(dl, width=100)
-                    if not wrapped:
-                        lines.append("")
-                    else:
-                        lines.extend(wrapped)
-                lines.append("")
-
-            line_height = 12
-            for l in lines:
-                if y < margin + 30:
-                    c.showPage()
-                    y = height - margin
-                    c.setFont("Helvetica", 10)
-                c.drawString(margin, y, l)
-                y -= line_height
-
-            c.save()
-
-            # if work_dir was used, move to output_path
-            if work_dir is not None and os.path.exists(target):
-                import shutil
-
-                try:
-                    os.replace(target, output_path)
-                except OSError:
-                    shutil.copy2(target, output_path)
-                    os.remove(target)
-
-            return {"pdf_path": output_path, "fallback": "reportlab"}
-        except Exception as e:
-            return {"error": f"reportlab generation failed: {e}"}
