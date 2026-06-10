@@ -30,10 +30,10 @@
 \maketitle
 
 % Insert the company logo (JPG) located on this directory
-\IfFileExists{logo_sdv.jpg}{%
+\IfFileExists{swissknife_logo.jpg}{%
   \begin{figure}[h]
     \centering
-    \includegraphics[width=20cm]{swissknife_logo.jpg}
+    \includegraphics[width=10cm]{swissknife_logo.jpg}
     \label{fig:logo}
   \end{figure}
 }{}
@@ -48,12 +48,18 @@ This report presents the results of an automated penetration test using SwissKni
 The tools that can be used in this test include:
 \begin{itemize}
     \item Nmap
+    \item Aircrack-ng
     \item Nikto
     \item Hydra
     \item SQLmap
     \item Gobuster
-    \item Ettercap
-    \item Metasploit
+    \item Metasploit (MSFVenom)
+    \item Ffuf
+    \item Nuclei
+    \item John
+    \item Searchsploit
+    \item Sslyze
+    \item TShark
 \end{itemize}
 
 %%REPORT_CONTENT%%
