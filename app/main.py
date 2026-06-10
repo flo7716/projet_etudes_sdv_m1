@@ -16,7 +16,7 @@ from app.modules.sslyze import run_sslyze
 from app.modules.tshark import run_tshark
 from app.modules.clamscan import run_clamscan
 from app.modules.ffuf import run_ffuf
-from app.modules.report import generate_pdf_report
+from app.modules.report import generate_pdf_report, normalize_tool_result
 from datetime import datetime, timezone
 
 
@@ -225,38 +225,39 @@ def main() -> int:
         ts = datetime.now(timezone.utc).isoformat()
         for test in args.tests:
             try:
+                raw_result = None
                 if test == "nmap":
-                    results["nmap"] = run_nmap(args.target, "")
+                    raw_result = run_nmap(args.target, "")
                 elif test == "nikto":
-                    results["nikto"] = run_nikto(args.target, "")
+                    raw_result = run_nikto(args.target, "")
                 elif test == "gobuster":
-                    results["gobuster"] = run_gobuster(args.target, None, "")
+                    raw_result = run_gobuster(args.target, None, "")
                 elif test == "sqlmap":
-                    results["sqlmap"] = run_sqlmap(args.target, "")
+                    raw_result = run_sqlmap(args.target, "")
                 elif test == "hydra":
-                    # hydra requires a username and passlist; use defaults
-                    results["hydra"] = run_hydra(args.target, "root", "/usr/share/wordlists/rockyou.txt", "")
+                    raw_result = run_hydra(args.target, "root", "/usr/share/wordlists/rockyou.txt", "")
                 elif test == "john":
-                    # john typically uses a hash file; record that it's skipped when not provided
-                    results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+                    raw_result = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
                 elif test == "aircrack_ng":
-                    results["aircrack_ng"] = run_aircrack_ng(args.target, "")
+                    raw_result = run_aircrack_ng(args.target, "")
                 elif test == "nuclei":
-                    results["nuclei"] = run_nuclei(args.target, "")
+                    raw_result = run_nuclei(args.target, "")
                 elif test == "ffuf":
-                    results["ffuf"] = run_ffuf(args.target, "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", "")
+                    raw_result = run_ffuf(args.target, "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt", "")
                 elif test == "msfvenom":
-                    results["msfvenom"] = run_msfvenom(args.options)
+                    raw_result = run_msfvenom(args.options)
                 elif test == "searchsploit":
-                    results["searchsploit"] = run_searchsploit(args.target, args.options)
+                    raw_result = run_searchsploit(args.target, args.options)
                 elif test == "sslyze":
-                    results["sslyze"] = run_sslyze(args.target, args.options)
+                    raw_result = run_sslyze(args.target, args.options)
                 elif test == "tshark":
-                    results["tshark"] = run_tshark(args.target, args.options)
+                    raw_result = run_tshark(args.target, args.options)
                 elif test == "clamscan":
-                    results["clamscan"] = run_clamscan(args.target, args.options)
+                    raw_result = run_clamscan(args.target, args.options)
+
+                results[test] = normalize_tool_result(test, raw_result, args.target)
             except Exception as e:
-                results[test] = {"error": str(e)}
+                results[test] = normalize_tool_result(test, {"error": str(e)}, args.target)
 
         report_title = f"Pentest report for {args.target} ({ts})"
         pdf_result = generate_pdf_report(

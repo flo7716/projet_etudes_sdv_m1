@@ -6,6 +6,37 @@ import json
 from typing import Dict, Any
 
 
+SEVERITY_WEIGHTS = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+TOOL_OBJECTIVES = {
+    "nmap": "Identify active hosts, open ports and exposed services.",
+    "aircrack_ng": "Assess wireless cracking opportunities and capture-file weaknesses.",
+    "sslyze": "Evaluate TLS/SSL configuration, certificates and protocol support.",
+    "gobuster": "Enumerate directories and files on the target application.",
+    "ffuf": "Probe the target for hidden paths, endpoints and sensitive resources.",
+    "nikto": "Detect web server misconfigurations and common vulnerabilities.",
+    "nuclei": "Run vulnerability templates against the target.",
+    "sqlmap": "Test input parameters for SQL injection and related weaknesses.",
+    "hydra": "Verify whether weak credentials can be discovered through brute-force.",
+    "john": "Recover or validate password hashes and cracked credentials.",
+    "tshark": "Inspect protocol traffic and identify suspicious or exposed data flows.",
+    "clamscan": "Scan files or directories for known malware indicators.",
+}
+TOOL_RECOMMENDATIONS = {
+    "nmap": "Close unnecessary services, restrict exposed ports and monitor for unexpected network listeners.",
+    "aircrack_ng": "Strengthen wireless protections and require WPA3 or strong passphrase policies.",
+    "sslyze": "Disable deprecated protocols, renew certificates and enforce modern TLS settings.",
+    "gobuster": "Remove accidental endpoints, enforce authentication and review directory listings.",
+    "ffuf": "Harden endpoints, restrict access and fix exposed administrative paths.",
+    "nikto": "Patch outdated software, remove default files and secure server headers.",
+    "nuclei": "Prioritize template findings and patch the vulnerable components in the exposed stack.",
+    "sqlmap": "Use parameterized queries, input validation and application-layer WAF protections.",
+    "hydra": "Enforce MFA, strong passwords and account lockout policies.",
+    "john": "Rotate cracked credentials and enforce password policies across the environment.",
+    "tshark": "Review suspicious flows and restrict unnecessary network exposure.",
+    "clamscan": "Quarantine suspicious files and update antivirus signatures regularly.",
+}
+
+
 LATEX_TEMPLATE = r"""
 \documentclass{article}
 \usepackage[utf8]{inputenc}
@@ -58,6 +89,123 @@ def _sanitize_data(data: Any) -> Any:
     return data
 
 
+def _extract_text(value: Any) -> str:
+    if isinstance(value, str):
+        return _clean_text(value)
+    if isinstance(value, dict):
+        return ", ".join(f"{k}={_extract_text(v)}" for k, v in value.items())
+    if isinstance(value, list):
+        return " | ".join(_extract_text(item) for item in value if _extract_text(item))
+    return str(value)
+
+
+def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Dict[str, Any]:
+    """Return a standard result object for any tool while preserving existing raw output."""
+    if isinstance(data, dict) and data.get("tool") and data.get("summary") and "findings" in data:
+        normalized = dict(data)
+    else:
+        normalized = dict(data) if isinstance(data, dict) else {"raw_output": data}
+
+    normalized.setdefault("tool", tool)
+    normalized.setdefault("target", target or (data.get("target") if isinstance(data, dict) else None))
+    normalized.setdefault("summary", "")
+    normalized.setdefault("findings", [])
+    normalized.setdefault("severity", "medium")
+    normalized.setdefault("raw_output", data)
+    normalized.setdefault("objective", TOOL_OBJECTIVES.get(tool, "Collect evidence and highlight exposure areas."))
+    normalized.setdefault("recommendations", [TOOL_RECOMMENDATIONS.get(tool, "Review and remediate the reported findings promptly.")])
+
+    summary = normalized.get("summary") or ""
+    if not summary:
+        if isinstance(data, dict):
+            if data.get("open_ports_count") is not None:
+                summary = f"{tool} reported {data.get('open_ports_count', 0)} open port(s)."
+            elif data.get("cracked_passwords_count") is not None:
+                summary = f"{tool} reported {data.get('cracked_passwords_count', 0)} cracked credential(s)."
+            elif data.get("vulnerabilities_count") is not None:
+                summary = f"{tool} reported {data.get('vulnerabilities_count', 0)} finding(s)."
+            elif data.get("error"):
+                summary = f"{tool} failed: {data.get('error')}"
+            else:
+                summary = f"{tool} completed with the available evidence."
+        else:
+            summary = f"{tool} completed with the available evidence."
+    normalized["summary"] = _clean_text(summary)
+
+    findings = normalized.get("findings") or []
+    if not findings:
+        if isinstance(data, dict):
+            for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "exploits", "issues", "alerts"):
+                value = data.get(key)
+                if isinstance(value, list) and value:
+                    findings = [_extract_text(item) for item in value if _extract_text(item)]
+                    break
+        if not findings and isinstance(data, dict) and data.get("open_ports_count"):
+            findings = [f"Detected {data.get('open_ports_count')} open port(s) during the scan."]
+        if not findings and isinstance(data, dict) and data.get("cracked_passwords_count"):
+            findings = [f"Recovered {data.get('cracked_passwords_count')} cracked credential(s)."]
+        if not findings and isinstance(data, dict) and data.get("vulnerabilities_count"):
+            findings = [f"Reported {data.get('vulnerabilities_count')} finding(s)."]
+        if not findings and isinstance(data, dict) and data.get("raw_output"):
+            findings = [line.strip() for line in str(data.get("raw_output")).splitlines() if line.strip()][:8]
+        if not findings and isinstance(data, str):
+            findings = [line.strip() for line in data.splitlines() if line.strip()][:8]
+    normalized["findings"] = findings or []
+
+    severity = normalized.get("severity") or "medium"
+    if severity not in SEVERITY_WEIGHTS:
+        severity = "medium"
+    normalized["severity"] = severity
+
+    recommendations = normalized.get("recommendations") or [TOOL_RECOMMENDATIONS.get(tool, "Review the findings and apply the corresponding remediation steps.")]
+    if isinstance(recommendations, str):
+        recommendations = [recommendations]
+    normalized["recommendations"] = recommendations
+
+    return _sanitize_data(normalized)
+
+
+def normalize_results(results: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = {}
+    for tool, data in results.items():
+        normalized[tool] = normalize_tool_result(
+            tool,
+            data,
+            target=(data.get("target") if isinstance(data, dict) else None),
+        )
+    return normalized
+
+
+def build_global_summary(results: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = normalize_results(results)
+    severity_breakdown = {label: 0 for label in ("low", "medium", "high", "critical")}
+    total_findings = 0
+    risk_score = 0
+
+    for tool, data in normalized.items():
+        severity = data.get("severity", "medium")
+        severity_breakdown[severity] = severity_breakdown.get(severity, 0) + 1
+
+        findings = data.get("findings") or []
+        total_findings += len(findings)
+        risk_score += SEVERITY_WEIGHTS.get(severity, 2) * max(1, len(findings))
+
+    recommendations = []
+    for tool, data in normalized.items():
+        recs = data.get("recommendations") or []
+        if isinstance(recs, str):
+            recs = [recs]
+        recommendations.extend(recs)
+
+    return {
+        "total_tools": len(normalized),
+        "total_findings": total_findings,
+        "severity_breakdown": severity_breakdown,
+        "risk_score": min(100, risk_score),
+        "recommendations": list(dict.fromkeys(recommendations))[:8],
+    }
+
+
 def _load_report_template() -> str:
     template_path = os.path.join(os.path.dirname(__file__), "model", "report.tex")
     try:
@@ -68,21 +216,37 @@ def _load_report_template() -> str:
 
 
 def _render_summary_page(results: Dict[str, Any]) -> str:
-    tests = sorted(results.keys())
-    parts = ["\\section*{Summary}", "\\begin{itemize}"]
-    for tool in tests:
-        data = results[tool]
-        status = "Completed"
-        if isinstance(data, dict):
-            if data.get("error"):
-                status = f"Error: {data['error']}"
-            elif data.get("note"):
-                status = data["note"]
-            elif tool == "nmap" and isinstance(data.get("open_ports_count"), int):
-                status = f"{data['open_ports_count']} open ports"
+    normalized = normalize_results(results)
+    summary = build_global_summary(normalized)
+    tests = sorted(normalized.keys())
 
+    parts = [
+        "\\section*{Executive Summary}",
+        "\\begin{itemize}",
+        f"  \\item \\textbf{{Total vulnerabilities}}: {summary['total_findings']}",
+        f"  \\item \\textbf{{Risk score}}: {summary['risk_score']} / 100",
+        f"  \\item \\textbf{{Tools executed}}: {summary['total_tools']}",
+        "\\end{itemize}",
+        "\\paragraph{Severity distribution}\\\n",
+        "\\begin{itemize}",
+    ]
+    for label, count in summary["severity_breakdown"].items():
+        if count:
+            parts.append(f"  \\item {label.title()}: {count}")
+    parts.append("\\end{itemize}")
+    parts.append("\\paragraph{Priority recommendations}\\\n")
+    parts.append("\\begin{itemize}")
+    for recommendation in summary["recommendations"]:
+        parts.append(f"  \\item {_escape_latex(str(recommendation))}")
+    parts.append("\\end{itemize}")
+    parts.append("\\paragraph{Per-tool status}\\\n")
+    parts.append("\\begin{itemize}")
+    for tool in tests:
+        data = normalized[tool]
+        status = data.get("summary") or "Completed"
+        severity = data.get("severity", "medium")
         parts.append(
-            f"  \\item \\textbf{{{_escape_latex(tool)}}}: {_escape_latex(str(status))}"
+            f"  \\item \\textbf{{{_escape_latex(tool)}}}: {_escape_latex(str(status))} (risk: {severity})"
         )
     parts.append("\\end{itemize}")
     return "\n".join(parts)
@@ -178,40 +342,63 @@ def _render_nmap_data(data: Dict[str, Any]) -> str:
 
 
 def _render_tool_page(tool: str, data: Any) -> str:
+    normalized = normalize_tool_result(tool, data, target=(data.get("target") if isinstance(data, dict) else None))
     title = f"\\section*{{{_escape_latex(tool.title())}}}"
-    if isinstance(data, dict) and data.get("error"):
-        return title + "\n\\textbf{Error}: " + _escape_latex(str(data.get("error")))
 
-    if tool == "nmap" and isinstance(data, dict):
-        return title + "\n" + _render_nmap_data(data)
+    if isinstance(normalized, dict) and normalized.get("error"):
+        return title + "\n\\textbf{Error}: " + _escape_latex(str(normalized.get("error")))
 
-    if tool in {"ffuf", "searchsploit"} and isinstance(data, dict):
-        summary_name = "vulnerabilities" if tool == "ffuf" else "exploits"
-        summary_count = data.get(f"{summary_name}_count", len(data.get(summary_name, [])))
-        parts = ["\\textbf{Summary}: " + _escape_latex(str(summary_count))]
-        if data.get(summary_name):
-            parts.append("\\subsection*{Details}")
-            parts.append(_render_itemize(data[summary_name]))
-        return title + "\n" + "\n".join(parts)
+    sections = [
+        "\\subsection*{Objective}",
+        _escape_latex(normalized.get("objective") or TOOL_OBJECTIVES.get(tool, "Collect evidence and highlight exposure areas.")) + "\\",
+        "\\subsection*{Target}",
+        _escape_latex(str(normalized.get("target") or "Not specified")) + "\\",
+        "\\subsection*{Executive summary}",
+        _escape_latex(str(normalized.get("summary") or "No summary was recorded for this run.")) + "\\",
+        "\\subsection*{Main findings}",
+    ]
 
-    if tool == "hydra" and isinstance(data, dict):
-        parts = ["\\textbf{Cracked Passwords}: " + _escape_latex(str(data.get("cracked_passwords_count", 0)))]
-        if data.get("cracked_passwords"):
-            parts.append("\\subsection*{Passwords}")
-            parts.append(_render_itemize(data["cracked_passwords"]))
-        return title + "\n" + "\n".join(parts)
+    findings = normalized.get("findings") or []
+    if findings:
+        sections.append("\\begin{itemize}")
+        for item in findings[:12]:
+            sections.append(f"  \\item {_escape_latex(str(item))}")
+        sections.append("\\end{itemize}")
+    else:
+        sections.append("No additional findings were captured in the raw output.\\")
 
-    if isinstance(data, dict):
-        return title + "\n" + _render_itemize(data)
+    severity = normalized.get("severity", "medium")
+    recommendations = normalized.get("recommendations") or []
+    if isinstance(recommendations, str):
+        recommendations = [recommendations]
 
-    return title + "\n" + _render_verbatim(data)
+    sections.extend([
+        "\\subsection*{Risk level}",
+        f"{_escape_latex(severity.title())}\\",
+        "\\subsection*{Recommendations}",
+        "\\begin{itemize}",
+    ])
+    for recommendation in recommendations[:5]:
+        sections.append(f"  \\item {_escape_latex(str(recommendation))}")
+    sections.append("\\end{itemize}")
+
+    if tool == "nmap" and isinstance(normalized, dict):
+        sections.append("\\subsection*{Network details}")
+        sections.append(_render_nmap_data(normalized))
+
+    if isinstance(normalized.get("raw_output"), dict) and normalized["raw_output"].get("raw_output"):
+        sections.append("\\subsection*{Raw output}")
+        sections.append(_render_verbatim(normalized["raw_output"]))
+
+    return title + "\n" + "\n".join(sections)
 
 
 def _render_results_as_latex(results: Dict[str, Any]) -> str:
+    normalized = normalize_results(results)
     pages = [
-        _render_summary_page(results),
+        _render_summary_page(normalized),
     ]
-    for tool, data in results.items():
+    for tool, data in normalized.items():
         pages.append(_render_tool_page(tool, data))
     return "\n\\newpage\n".join(pages)
 
@@ -241,7 +428,8 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     Writes temporary .tex, runs pdflatex, and moves PDF to output_path.
     """
     template = _load_report_template()
-    tex_body = _render_results_as_latex(results)
+    normalized_results = normalize_results(results)
+    tex_body = _render_results_as_latex(normalized_results)
     if TEMPLATE_PLACEHOLDER in template:
         tex = template.replace(TEMPLATE_PLACEHOLDER, tex_body)
     elif "\\end{document}" in template:
