@@ -30,13 +30,17 @@
 \maketitle
 
 % Insert the company logo (JPG) located on this directory
-\IfFileExists{swissknife_logo.jpg}{%
+\IfFileExists{./swissknife_logo.jpg}{%
   \begin{figure}[h]
     \centering
-    \includegraphics[width=10cm]{swissknife_logo.jpg}
+    \includegraphics[width=20cm]{./swissknife_logo.jpg}
     \label{fig:logo}
   \end{figure}
-}{}
+}{%
+  \begin{center}
+    \textit{[Logo not found]}
+  \end{center}
+}
 
 % Page break after the title page
 \newpage
