@@ -15,7 +15,7 @@ def parse_nuclei(output: str):
 
 
 def run_nuclei(target: str, options: str = ""):
-    command = ["nuclei", "-u", target]
+    command = ["nuclei", "-target", target]
 
     if options:
         command.extend(shlex.split(options))
