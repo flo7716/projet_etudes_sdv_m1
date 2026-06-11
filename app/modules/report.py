@@ -74,7 +74,11 @@ def _escape_latex(text: str) -> str:
 def _clean_text(text: str) -> str:
     ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
     text = ansi_escape.sub("", text)
-    return "".join(ch for ch in text if ch.isprintable() or ch in "\n\r\t")
+    # Keep only ASCII printable + standard whitespace — LaTeX can't handle arbitrary Unicode
+    return "".join(
+        ch for ch in text
+        if (32 <= ord(ch) < 127) or ch in "\n\r\t"
+    )
 
 
 def _sanitize_data(data: Any) -> Any:
@@ -150,6 +154,28 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
             findings = [line.strip() for line in str(data.get("raw_output")).splitlines() if line.strip()][:8]
         if not findings and isinstance(data, str):
             findings = [line.strip() for line in data.splitlines() if line.strip()][:8]
+
+    if tool == "sqlmap" and isinstance(data, dict):
+        sqlmap_log_summary = data.get("log_summary") or (data.get("raw_output", {}).get("log_summary") if isinstance(data.get("raw_output"), dict) else "")
+        sqlmap_log_files = data.get("log_files") or []
+
+        if sqlmap_log_summary:
+            excerpt_lines = []
+            for line in sqlmap_log_summary.splitlines():
+                cleaned = _clean_text(line).strip()
+                if cleaned and not cleaned.startswith("==="):
+                    excerpt_lines.append(cleaned)
+                if len(excerpt_lines) >= 8:
+                    break
+            if excerpt_lines:
+                findings = list(dict.fromkeys(findings + [f"SQLMap log excerpt: {line}" for line in excerpt_lines]))
+
+        for entry in sqlmap_log_files[:3]:
+            if isinstance(entry, dict) and entry.get("content"):
+                first_line = _clean_text(str(entry.get("content", "")).splitlines()[0]).strip()
+                if first_line:
+                    findings = list(dict.fromkeys(findings + [f"SQLMap file {entry.get('name', 'log')}: {first_line}"]))
+
     normalized["findings"] = findings or []
 
     severity = normalized.get("severity") or "medium"
@@ -254,7 +280,7 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
 
 def _render_text_block(text: Any) -> str:
     cleaned = _clean_text(str(text))
-    return "\\begin{Verbatim}[breaklines=true,fontsize=\\small]\n" + cleaned + "\n\\end{Verbatim}"
+    return "\\begin{Verbatim}[fontsize=\\small]\n" + cleaned + "\n\\end{Verbatim}"
 
 
 def _render_verbatim(data: Any) -> str:
@@ -262,7 +288,7 @@ def _render_verbatim(data: Any) -> str:
         dump = json.dumps(_sanitize_data(data), ensure_ascii=False, indent=2)
     except Exception:
         dump = repr(_sanitize_data(data))
-    return "\\begin{Verbatim}[breaklines=true,fontsize=\\small]\n" + dump + "\n\\end{Verbatim}"
+    return "\\begin{Verbatim}[fontsize=\\small]\n" + dump + "\n\\end{Verbatim}"
 
 
 def _render_itemize(data: Any) -> str:
@@ -307,40 +333,48 @@ def _format_service_info(service: dict) -> str:
 
 def _render_nmap_data(data: Dict[str, Any]) -> str:
     parts = []
-    host = data.get("host", {})
-    if host:
-        if host.get("hostnames"):
-            parts.append("\\textbf{Hostnames}: " + _escape_latex(", ".join(host["hostnames"])) + "\\")
-        if host.get("addresses"):
-            parts.append("\\textbf{Addresses}: " + _escape_latex(", ".join(host["addresses"])) + "\\")
+    host = data.get("host") if isinstance(data.get("host"), dict) else {}
+    hostnames = host.get("hostnames") if isinstance(host.get("hostnames"), list) else []
+    addresses = host.get("addresses") if isinstance(host.get("addresses"), list) else []
+    if hostnames:
+        parts.append("\\textbf{Hostnames}: " + _escape_latex(", ".join(str(item) for item in hostnames)) + "\\")
+    if addresses:
+        parts.append("\\textbf{Addresses}: " + _escape_latex(", ".join(str(item) for item in addresses)) + "\\")
     parts.append("\\textbf{Host Status}: " + _escape_latex(str(data.get("status", "unknown"))) + "\\")
-    open_ports_count = data.get("open_ports_count", 0)
+    open_ports_count = data.get("open_ports_count", 0) if isinstance(data.get("open_ports_count"), (int, float)) else 0
     parts.append("\\textbf{Open Ports Found}: " + _escape_latex(str(open_ports_count)) + "\\")
     parts.append("\\subsection*{Open ports}")
-    if data.get("open_ports"):
+    open_ports = data.get("open_ports") if isinstance(data.get("open_ports"), list) else []
+    if open_ports:
         parts.append("\\begin{itemize}")
-        for port in data["open_ports"]:
-            service = _format_service_info(port.get("service", {}))
-            port_label = f"{port.get('port')}/{port.get('protocol')} - {service}".strip()
+        for port in open_ports:
+            if not isinstance(port, dict):
+                continue
+            service = port.get("service") if isinstance(port.get("service"), dict) else {}
+            port_label = f"{port.get('port')}/{port.get('protocol')} - {_format_service_info(service)}".strip()
             parts.append("  \\item " + _escape_latex(port_label))
-            scripts = port.get("scripts", [])
+            scripts = port.get("scripts") if isinstance(port.get("scripts"), list) else []
             if scripts:
                 parts.append("  \\begin{itemize}")
                 for script in scripts:
+                    if not isinstance(script, dict):
+                        continue
                     script_line = f"{script.get('id')}: {script.get('output')}"
-                    parts.append("    \\item " + _escape_latex(script_line))
+                    parts.append("    \\item " + _escape_latex(str(script_line)))
                 parts.append("  \\end{itemize}")
         parts.append("\\end{itemize}")
     else:
         parts.append("No open ports detected.\\")
 
-    os_matches = data.get("os_matches", [])
+    os_matches = data.get("os_matches") if isinstance(data.get("os_matches"), list) else []
     if os_matches:
         parts.append("\\subsection*{OS matches}")
         parts.append("\\begin{itemize}")
         for match in os_matches:
+            if not isinstance(match, dict):
+                continue
             match_line = f"{match.get('name')} (accuracy: {match.get('accuracy')})"
-            parts.append("  \\item " + _escape_latex(match_line))
+            parts.append("  \\item " + _escape_latex(str(match_line)))
         parts.append("\\end{itemize}")
 
     return "\n".join(parts)
@@ -391,25 +425,37 @@ def _render_tool_page(tool: str, data: Any) -> str:
         sections.append("\\subsection*{Network details}")
         sections.append(_render_nmap_data(normalized))
 
-    if isinstance(normalized.get("raw_output"), dict):
-        raw_output = normalized["raw_output"]
-        if raw_output.get("log_dir"):
+    raw_output = normalized.get("raw_output")
+    if isinstance(raw_output, dict):
+        log_dir = raw_output.get("log_dir") if isinstance(raw_output.get("log_dir"), str) else None
+        log_summary = raw_output.get("log_summary") if isinstance(raw_output.get("log_summary"), str) else None
+        log_files = raw_output.get("log_files") if isinstance(raw_output.get("log_files"), list) else []
+
+        if log_dir:
             sections.append("\\subsection*{SQLMap session folder}")
-            sections.append(_escape_latex(str(raw_output["log_dir"])) + "\\")
+            sections.append(_escape_latex(log_dir) + "\\")
 
-        if raw_output.get("log_summary"):
+        if log_summary:
             sections.append("\\subsection*{SQLMap session log contents}")
-            sections.append(_render_text_block(raw_output["log_summary"]))
+            sections.append(_render_text_block(log_summary))
 
-        if raw_output.get("log_files"):
+        if log_files:
             sections.append("\\subsection*{SQLMap log files}")
-            for entry in raw_output["log_files"]:
-                sections.append("\\paragraph{" + _escape_latex(str(entry.get("name", "log file"))) + "}\\")
-                sections.append(_render_text_block(entry.get("content", "")))
+            for entry in log_files:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name") if isinstance(entry.get("name"), str) else "log file"
+                content = entry.get("content") if isinstance(entry.get("content"), str) else ""
+                sections.append("\\paragraph{" + _escape_latex(name) + "}\\")
+                sections.append(_render_text_block(content))
 
-        if raw_output.get("raw_output"):
+        nested_output = raw_output.get("output") if isinstance(raw_output.get("output"), str) else None
+        if nested_output:
             sections.append("\\subsection*{Raw output}")
             sections.append(_render_verbatim(raw_output))
+    elif isinstance(raw_output, str) and raw_output.strip():
+        sections.append("\\subsection*{Raw output}")
+        sections.append(_render_verbatim(raw_output))
 
     return title + "\n" + "\n".join(sections)
 

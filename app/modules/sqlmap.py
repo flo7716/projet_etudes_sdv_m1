@@ -6,12 +6,14 @@ import sys
 
 from app.modules.interactive import prompt_text
 
+
 def parse_sqlmap(output):
     # SQLmap output is complex, for simplicity, return raw output
     # In a real implementation, parse JSON if available
     return {
         "output": output
     }
+
 
 def _should_prompt_for_sqlmap_output(line):
     return bool(
@@ -32,10 +34,16 @@ def _read_sqlmap_log_files(log_dir: str):
     if not log_dir or not os.path.isdir(log_dir):
         return []
 
+    # Only include known text file extensions, skip binary files like session.sqlite
+    TEXT_EXTENSIONS = {".log", ".txt", ".csv", ".json", ".xml", ".html"}
+
     log_files = []
     for root, _, files in os.walk(log_dir):
         for name in sorted(files):
             file_path = os.path.join(root, name)
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in TEXT_EXTENSIONS:
+                continue  # ← skip session.sqlite and other binary files
             if os.path.isfile(file_path):
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
@@ -63,6 +71,19 @@ def _prompt_for_sqlmap_answer(prompt_text_line):
     return answer.strip() or default
 
 
+def _attach_log_files(result: dict) -> dict:
+    """Read sqlmap log files from disk and attach them to the result dict."""
+    log_dir = _extract_sqlmap_log_dir(result.get("output", ""))
+    if log_dir:
+        result["log_dir"] = log_dir
+        result["log_files"] = _read_sqlmap_log_files(log_dir)
+        log_text = []
+        for entry in result["log_files"]:
+            log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
+        result["log_summary"] = "\n".join(log_text).strip()
+    return result
+
+
 def run_sqlmap(target, options="", interactive=False):
     command = ["sqlmap", "-u", target]
     if options:
@@ -71,21 +92,36 @@ def run_sqlmap(target, options="", interactive=False):
         except ValueError:
             command.extend(options.split())
 
+    command.append("--batch")
+
     if interactive:
+        output_lines = []
         try:
             proc = subprocess.Popen(
                 command,
                 stdin=sys.stdin,
-                stdout=sys.stdout,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
             )
-            proc.wait()
-            return parse_sqlmap(f"sqlmap exited with code {proc.returncode}\n")
-        except KeyboardInterrupt:
-            return parse_sqlmap("\n[INFO] sqlmap session interrupted by the user.\n")
 
+            if proc.stdout is None:
+                raise RuntimeError("Failed to capture sqlmap process stdout")
+
+            for line in proc.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                output_lines.append(line)
+
+            proc.wait()
+        except KeyboardInterrupt:
+            output_lines.append("\n[INFO] sqlmap session interrupted by the user.\n")
+
+        result = parse_sqlmap("".join(output_lines))
+        return _attach_log_files(result)
+
+    # Non-interactive: run with --batch and capture everything silently
     command.append("--batch")
 
     output_lines = []
@@ -120,16 +156,7 @@ def run_sqlmap(target, options="", interactive=False):
         output_lines.append(f"[ERROR] {exc}\n")
 
     result = parse_sqlmap("".join(output_lines))
-    if isinstance(result, dict):
-        log_dir = _extract_sqlmap_log_dir(result.get("output", ""))
-        if log_dir:
-            result["log_dir"] = log_dir
-            result["log_files"] = _read_sqlmap_log_files(log_dir)
-            log_text = []
-            for entry in result["log_files"]:
-                log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
-            result["log_summary"] = "\n".join(log_text).strip()
-    return result
+    return _attach_log_files(result)
 
 
 def run_sqlmap_interactive():

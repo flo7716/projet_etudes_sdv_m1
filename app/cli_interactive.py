@@ -27,7 +27,7 @@ from app.modules.ffuf import run_ffuf, run_ffuf_interactive
 from app.modules.sslyze import run_sslyze, run_sslyze_interactive
 from app.modules.clamscan import run_clamscan, run_clamscan_interactive
 from app.modules.tshark import run_tshark, run_tshark_interactive
-from app.modules.report import generate_pdf_report
+from app.modules.report import generate_pdf_report, normalize_tool_result
 
 
 console = Console()
@@ -176,41 +176,45 @@ def run_pipeline_interactive():
     for test in tests:
         try:
             options = pipeline_args.get(test, {}).get("options", "")
+            raw_result = None
 
             if test == "nmap":
-                results["nmap"] = run_nmap(target, options)
+                raw_result = run_nmap(target, options)
             elif test == "nikto":
-                results["nikto"] = run_nikto(target, options)
+                raw_result = run_nikto(target, options)
             elif test == "gobuster":
-                results["gobuster"] = run_gobuster(target, None, options)
+                raw_result = run_gobuster(target, None, options)
             elif test == "sqlmap":
-                results["sqlmap"] = run_sqlmap(target, options, interactive=True)
+                raw_result = run_sqlmap(target, options, interactive=True)
+                print(f"DEBUG sqlmap raw_result: {repr(raw_result)}")
             elif test == "hydra":
                 passlist = pipeline_args.get(test, {}).get("passlist", "/usr/share/wordlists/rockyou.txt")
-                results["hydra"] = run_hydra(target, "root", passlist, options)
+                raw_result = run_hydra(target, "root", passlist, options)
             elif test == "john":
-                results["john"] = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
+                raw_result = {"note": "john requires a hash file; skipped in pipeline unless provided separately"}
             elif test == "aircrack_ng":
-                results["aircrack_ng"] = run_aircrack_ng(target, options)
+                raw_result = run_aircrack_ng(target, options)
             elif test == "nuclei":
-                results["nuclei"] = run_nuclei(target, options)
+                raw_result = run_nuclei(target, options)
             elif test == "searchsploit":
-                results["searchsploit"] = run_searchsploit(target, options)
+                raw_result = run_searchsploit(target, options)
             elif test == "ffuf":
                 wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
-                results["ffuf"] = run_ffuf(target, wordlist, options)
+                raw_result = run_ffuf(target, wordlist, options)
             elif test == "sslyze":
-                results["sslyze"] = run_sslyze(target, options)
+                raw_result = run_sslyze(target, options)
             elif test == "tshark":
-                from app.modules.tshark import run_tshark
-                results["tshark"] = run_tshark(target, options)
+                raw_result = run_tshark(target, options)
             elif test == "clamscan":
-                from app.modules.clamscan import run_clamscan
-                results["clamscan"] = run_clamscan(target, options)
+                raw_result = run_clamscan(target, options)
             else:
-                results[test] = {"error": "Unknown test selected"}
+                raw_result = {"error": "Unknown test selected"}
+
+            results[test] = normalize_tool_result(test, raw_result, target)  # ← the fix
         except Exception as e:
-            results[test] = {"error": str(e)}
+            import traceback
+            traceback.print_exc()
+            results[test] = {"tool": test, "error": str(e), "summary": str(e), "findings": [], "severity": "medium", "recommendations": [], "raw_output": str(raw_result) if 'raw_result' in locals() else ""}
 
     report_title = f"Pentest report for {target} ({timestamp})"
     try:
@@ -224,6 +228,8 @@ def run_pipeline_interactive():
         console.print(f"[green]Report saved to: {output_file}[/green]")
         console.print(result)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         console.print(f"[red]✗ Error: {str(e)}[/red]")
 
 
