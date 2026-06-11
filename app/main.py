@@ -233,7 +233,7 @@ def main() -> int:
                 elif test == "gobuster":
                     raw_result = run_gobuster(args.target, None, "")
                 elif test == "sqlmap":
-                    raw_result = run_sqlmap(args.target, "")
+                    raw_result = run_sqlmap(args.target, "", interactive=True)
                 elif test == "hydra":
                     raw_result = run_hydra(args.target, "root", "/usr/share/wordlists/rockyou.txt", "")
                 elif test == "john":

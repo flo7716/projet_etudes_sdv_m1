@@ -252,6 +252,11 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def _render_text_block(text: Any) -> str:
+    cleaned = _clean_text(str(text))
+    return "\\begin{Verbatim}[breaklines=true,fontsize=\\small]\n" + cleaned + "\n\\end{Verbatim}"
+
+
 def _render_verbatim(data: Any) -> str:
     try:
         dump = json.dumps(_sanitize_data(data), ensure_ascii=False, indent=2)
@@ -386,9 +391,25 @@ def _render_tool_page(tool: str, data: Any) -> str:
         sections.append("\\subsection*{Network details}")
         sections.append(_render_nmap_data(normalized))
 
-    if isinstance(normalized.get("raw_output"), dict) and normalized["raw_output"].get("raw_output"):
-        sections.append("\\subsection*{Raw output}")
-        sections.append(_render_verbatim(normalized["raw_output"]))
+    if isinstance(normalized.get("raw_output"), dict):
+        raw_output = normalized["raw_output"]
+        if raw_output.get("log_dir"):
+            sections.append("\\subsection*{SQLMap session folder}")
+            sections.append(_escape_latex(str(raw_output["log_dir"])) + "\\")
+
+        if raw_output.get("log_summary"):
+            sections.append("\\subsection*{SQLMap session log contents}")
+            sections.append(_render_text_block(raw_output["log_summary"]))
+
+        if raw_output.get("log_files"):
+            sections.append("\\subsection*{SQLMap log files}")
+            for entry in raw_output["log_files"]:
+                sections.append("\\paragraph{" + _escape_latex(str(entry.get("name", "log file"))) + "}\\")
+                sections.append(_render_text_block(entry.get("content", "")))
+
+        if raw_output.get("raw_output"):
+            sections.append("\\subsection*{Raw output}")
+            sections.append(_render_verbatim(raw_output))
 
     return title + "\n" + "\n".join(sections)
 

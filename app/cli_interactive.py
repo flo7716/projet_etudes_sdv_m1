@@ -184,7 +184,7 @@ def run_pipeline_interactive():
             elif test == "gobuster":
                 results["gobuster"] = run_gobuster(target, None, options)
             elif test == "sqlmap":
-                results["sqlmap"] = run_sqlmap(target, options)
+                results["sqlmap"] = run_sqlmap(target, options, interactive=True)
             elif test == "hydra":
                 passlist = pipeline_args.get(test, {}).get("passlist", "/usr/share/wordlists/rockyou.txt")
                 results["hydra"] = run_hydra(target, "root", passlist, options)
