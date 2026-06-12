@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sslyze \
     tshark \
     clamav \
+    clamav-daemon \
+    clamav-freshclam \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,6 +43,9 @@ RUN gunzip -k /usr/share/wordlists/rockyou.txt.gz
 # Installation des templates Nuclei
 RUN git clone https://github.com/projectdiscovery/nuclei-templates.git /root/.local/nuclei-templates
 RUN nuclei -update-templates
+
+# Mise à jour de ClamAV
+RUN freshclam
 
 # Backend
 COPY requirements.txt .
