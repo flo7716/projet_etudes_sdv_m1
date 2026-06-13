@@ -4,7 +4,11 @@ import subprocess
 from app.modules.interactive import prompt_text
 
 
-def parse_nuclei(output: str):
+def parse_nuclei(output_file: str):
+
+    with open(output_file, "r") as f:
+        output = f.read()
+
     lines = [line.strip() for line in output.splitlines() if line.strip()]
     return {
         "tool": "nuclei",
@@ -15,7 +19,7 @@ def parse_nuclei(output: str):
 
 
 def run_nuclei(target: str, options: str = ""):
-    command = ["nuclei", "-target", target]
+    command = ["nuclei", "-target", target, "-o", "nuclei_$(date +%Y%m%d_%H%M%S).txt"]
 
     if options:
         command.extend(shlex.split(options))
@@ -30,7 +34,7 @@ def run_nuclei(target: str, options: str = ""):
             "error": output or "nuclei scan failed.",
         }
 
-    return parse_nuclei(output)
+    return parse_nuclei("nuclei_$(date +%Y%m%d_%H%M%S).txt")
 
 
 def run_nuclei_interactive():
