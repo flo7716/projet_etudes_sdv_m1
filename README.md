@@ -116,7 +116,7 @@ python -m app.cli_interactive
 
 ---
 
-### 📶 AIRCRACK-NG - Wireless testing
+### 🛜  AIRCRACK-NG - Wireless testing
 - Wireless capture analysis and cracking support
 - Useful for auditing captured handshakes
 
@@ -226,7 +226,7 @@ python -m app.cli_interactive
     🕷️  NIKTO - Web Scanning
     📁 GOBUSTER - Directory Scanning
     🗄️  SQLMAP - SQL Injection
-    📶 AIRCRACK-NG - Wireless testing
+    🛜 AIRCRACK-NG - Wireless testing
     🧪 NUCLEI - Vulnerability scanning
     🛡️ MSFVENOM - Payload generation
     🔎 SEARCHSPLOIT - Vulnerability Search

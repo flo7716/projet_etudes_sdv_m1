@@ -280,7 +280,7 @@ def main():
                 "🕷️  NIKTO - Web Scanning",
                 "📁 GOBUSTER - Directory Scanning",
                 "🗄️  SQLMAP - SQL Injection",
-                "  AIRCRACK-NG - Wireless Testing",
+                "🛜  AIRCRACK-NG - Wireless Testing",
                 "🧪  NUCLEI - Vulnerability Scanning",
                 "💀 MSFVENOM - Payload Generation",
                 "🔎 SEARCHSPLOIT - Vulnerability Search",

@@ -534,12 +534,20 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
         with open(tex_path, "w", encoding="utf-8") as f:
             f.write(tex)
         
-        # Copy logo to temp directory if it exists
-        logo_src = os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg")
-        if os.path.exists(logo_src):
-            import shutil
-            logo_dst = os.path.join(td, "logo_sdv.jpg")
-            shutil.copy2(logo_src, logo_dst)
+        # Copy the logo used by the LaTeX template into the temp build directory.
+        # The template checks for ./swissknife_logo.jpg, so we must provide that name.
+        logo_candidates = [
+            os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg"),
+            os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg"),
+        ]
+
+        for logo_src in logo_candidates:
+            if os.path.exists(logo_src):
+                import shutil
+
+                logo_dst = os.path.join(td, os.path.basename(logo_src))
+                shutil.copy2(logo_src, logo_dst)
+                break
 
         # run pdflatex twice for cross-refs (if any)
         try:
