@@ -1,22 +1,44 @@
+import re
 import subprocess
-import xml.etree.ElementTree as ET
 from app.modules.interactive import prompt_text
 
+
 def parse_gobuster(output):
-    lines = output.splitlines()
+    findings = []
 
-    results = []
+    # gobuster -q output lines look like:
+    # /docs (Status: 301) [Size: 307] [--> http://172.18.0.2/docs/]
+    pattern = re.compile(
+        r"^(?P<path>\S+)\s+\(Status:\s*(?P<status>\d+)\)\s*\[Size:\s*(?P<size>\d+)\]"
+        r"(?:\s*\[--> (?P<redirect>\S+)\])?"
+    )
 
-    for line in lines:
-        #catches for lines with 200, 301, 302, 403, 500 status codes
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        match = pattern.match(line)
+        if match:
+            path = match.group("path")
+            status = match.group("status")
+            size = match.group("size")
+            redirect = match.group("redirect")
+
+            entry = f"{path} - HTTP {status} ({size} bytes)"
+            if redirect:
+                entry += f", redirects to {redirect}"
+            findings.append(entry)
+            continue
+
+        # Fallback: keep any other line that contains a status code we care about
         if any(status in line for status in ["200", "301", "302", "403", "500"]):
-            results.append(line)
+            findings.append(line)
 
     return {
-        "found_paths_count": len(results),
-        "found_paths": results
+        "found_paths_count": len(findings),
+        "findings": findings,
     }
-
 
 
 def run_gobuster(target, wordlist="/usr/share/wordlists/dirbuster/directory-list-1.0.txt", options=""):

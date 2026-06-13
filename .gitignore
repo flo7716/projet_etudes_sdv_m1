@@ -8,3 +8,7 @@ __pycache__/
 #ignore all .pyc files of the project
 *.pyc
 *.json
+
+
+#ignore nuclei txt files
+nuclei*.txt

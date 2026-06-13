@@ -10,11 +10,18 @@ def parse_nuclei(output_file: str):
         output = f.read()
 
     lines = [line.strip() for line in output.splitlines() if line.strip()]
+
+    findings = []
+    for line in lines:
+        # nuclei -o output lines look like:
+        # [template-id] [protocol] [severity] target [extra]
+        findings.append(line)
+
     return {
         "tool": "nuclei",
         "lines_count": len(lines),
-        "output": lines[-100:] if lines else [],
-        "raw_output": output,
+        "findings": findings[:25],
+        "raw_output": output[:4000],
     }
 
 

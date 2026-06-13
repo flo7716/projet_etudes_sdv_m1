@@ -71,14 +71,25 @@ def _escape_latex(text: str) -> str:
     return text
 
 
+_UNICODE_REPLACEMENTS = {
+    "\u2192": "->",   # →
+    "\u2190": "<-",   # ←
+    "\u2013": "-",    # –
+    "\u2014": "--",   # —
+    "\u2018": "'", "\u2019": "'",   # ' '
+    "\u201c": '"', "\u201d": '"',   # " "
+    "\u00bf": "",     # ¿
+    "\u00ab": '"', "\u00bb": '"',   # « »
+}
+
+
 def _clean_text(text: str) -> str:
     ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
     text = ansi_escape.sub("", text)
+    for src, dst in _UNICODE_REPLACEMENTS.items():
+        text = text.replace(src, dst)
     # Keep only ASCII printable + standard whitespace — LaTeX can't handle arbitrary Unicode
-    return "".join(
-        ch for ch in text
-        if (32 <= ord(ch) < 127) or ch in "\n\r\t"
-    )
+    return "".join(ch for ch in text if (32 <= ord(ch) < 127) or ch in "\n\r\t")
 
 
 def _sanitize_data(data: Any) -> Any:
@@ -126,8 +137,12 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
                 summary = f"{tool} reported {data.get('open_ports_count', 0)} open port(s)."
             elif data.get("cracked_passwords_count") is not None:
                 summary = f"{tool} reported {data.get('cracked_passwords_count', 0)} cracked credential(s)."
+            elif data.get("found_paths_count") is not None:
+                summary = f"{tool} discovered {data.get('found_paths_count', 0)} accessible path(s)."
             elif data.get("vulnerabilities_count") is not None:
                 summary = f"{tool} reported {data.get('vulnerabilities_count', 0)} finding(s)."
+            elif data.get("lines_count") is not None:
+                summary = f"{tool} produced {data.get('lines_count', 0)} template match line(s)."
             elif data.get("error"):
                 summary = f"{tool} failed: {data.get('error')}"
             else:
@@ -139,7 +154,7 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
     findings = normalized.get("findings") or []
     if not findings:
         if isinstance(data, dict):
-            for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "exploits", "issues", "alerts"):
+            for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "exploits", "issues", "alerts", "found_paths", "ssl_issues"):
                 value = data.get(key)
                 if isinstance(value, list) and value:
                     findings = [_extract_text(item) for item in value if _extract_text(item)]
@@ -150,14 +165,14 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
             findings = [f"Recovered {data.get('cracked_passwords_count')} cracked credential(s)."]
         if not findings and isinstance(data, dict) and data.get("vulnerabilities_count"):
             findings = [f"Reported {data.get('vulnerabilities_count')} finding(s)."]
-        if not findings and isinstance(data, dict) and data.get("raw_output"):
+        if not findings and isinstance(data, dict) and isinstance(data.get("raw_output"), str) and data.get("raw_output").strip():
             findings = [line.strip() for line in str(data.get("raw_output")).splitlines() if line.strip()][:8]
         if not findings and isinstance(data, str):
             findings = [line.strip() for line in data.splitlines() if line.strip()][:8]
 
     if tool == "sqlmap" and isinstance(data, dict):
         sqlmap_log_summary = data.get("log_summary") or (data.get("raw_output", {}).get("log_summary") if isinstance(data.get("raw_output"), dict) else "")
-        sqlmap_log_files = data.get("log_files") or []
+        sqlmap_log_files = data.get("log_files") or (data.get("raw_output", {}).get("log_files") if isinstance(data.get("raw_output"), dict) else [])
 
         if sqlmap_log_summary:
             excerpt_lines = []
@@ -399,10 +414,12 @@ def _render_tool_page(tool: str, data: Any) -> str:
 
     findings = normalized.get("findings") or []
     if findings:
+        sections.append("\\begingroup\\small\\sloppy")
         sections.append("\\begin{itemize}")
         for item in findings[:12]:
             sections.append(f"  \\item {_escape_latex(str(item))}")
         sections.append("\\end{itemize}")
+        sections.append("\\endgroup")
     else:
         sections.append("No additional findings were captured in the raw output.\\")
 
@@ -534,20 +551,12 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
         with open(tex_path, "w", encoding="utf-8") as f:
             f.write(tex)
         
-        # Copy the logo used by the LaTeX template into the temp build directory.
-        # The template checks for ./swissknife_logo.jpg, so we must provide that name.
-        logo_candidates = [
-            os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg"),
-            os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg"),
-        ]
-
-        for logo_src in logo_candidates:
-            if os.path.exists(logo_src):
-                import shutil
-
-                logo_dst = os.path.join(td, os.path.basename(logo_src))
-                shutil.copy2(logo_src, logo_dst)
-                break
+        # Copy logo to temp directory if it exists
+        logo_src = os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg")
+        if os.path.exists(logo_src):
+            import shutil
+            logo_dst = os.path.join(td, "logo_swissknife.jpg")
+            shutil.copy2(logo_src, logo_dst)
 
         # run pdflatex twice for cross-refs (if any)
         try:
