@@ -1,42 +1,62 @@
+import re
 import subprocess
+
 from app.modules.interactive import prompt_text
-def parse_ffuf(output):
 
-    results = []
 
-    for line in output.splitlines():
+def parse_ffuf(output: str):
+    findings = []
 
-        if line.startswith("ffuf") or line.startswith("Time") or line.startswith("Size") or line.startswith("Lines") or line.startswith("Words") or line.startswith("Status") or line.startswith("Content-Type") or line.startswith("Location"):
-            continue
+    # ffuf output line example (non-JSON mode):
+    # /admin                  [Status: 200, Size: 4321, Words: 120, Lines: 89, Duration: 45ms]
+    pattern = re.compile(
+        r"^(?P<word>\S+)\s+\[Status:\s*(?P<status>\d+),\s*Size:\s*(?P<size>\d+),"
+        r"\s*Words:\s*(?P<words>\d+),\s*Lines:\s*(?P<lines>\d+)"
+        r"(?:,\s*Duration:\s*(?P<duration>[\d]+ms))?\]",
+        re.MULTILINE,
+    )
 
-        if line.strip() == "":
-            continue
+    for m in pattern.finditer(output):
+        word = m.group("word")
+        status = m.group("status")
+        size = m.group("size")
+        duration = m.group("duration") or ""
+        entry = f"{word} - HTTP {status} ({size} bytes" + (f", {duration}" if duration else "") + ")"
+        findings.append(entry)
 
-        results.append(line.strip())
+    # fallback: keep lines that look like hits from older ffuf output format
+    if not findings:
+        for line in output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # skip headers / noise
+            if any(line.startswith(skip) for skip in [
+                "ffuf", "Time", "Size", "Lines", "Words", "Status",
+                "Content-Type", "Location", "::", "/"
+            ]):
+                continue
+            if re.search(r"\b(200|204|301|302|307|401|403)\b", line):
+                findings.append(line)
 
     return {
-        "vulnerabilities_count": len(results),
-        "vulnerabilities": results
+        "findings_count": len(findings),
+        "findings": findings,
     }
 
-def run_ffuf(target, wordlist, options=""):
 
+def run_ffuf(target, wordlist, options=""):
     command = [
         "ffuf",
         "-u", target,
         "-w", wordlist,
         "-t", "50",
-        "-mc", "200,204,301,302,307,401,403"
+        "-mc", "200,204,301,302,307,401,403",
     ]
     if options:
         command.extend(options.split())
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True
-    )
-
+    result = subprocess.run(command, capture_output=True, text=True)
     return parse_ffuf(result.stdout)
 
 
@@ -55,5 +75,3 @@ def run_ffuf_interactive():
     )
     print(f"\nRunning ffuf on {target}...")
     return run_ffuf(target, wordlist, options)
-
-

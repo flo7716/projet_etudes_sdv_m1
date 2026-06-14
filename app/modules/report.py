@@ -143,6 +143,25 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
                 summary = f"{tool} reported {data.get('vulnerabilities_count', 0)} finding(s)."
             elif data.get("lines_count") is not None:
                 summary = f"{tool} produced {data.get('lines_count', 0)} template match line(s)."
+            elif data.get("cracked_passwords_count") is not None:
+                count = data.get("cracked_passwords_count", 0)
+                summary = f"{tool} cracked {count} credential(s)." if count else f"{tool} found no valid credentials."
+            elif data.get("infected_count") is not None:
+                count = data.get("infected_count", 0)
+                scanned = data.get("scanned_count")
+                summary = (
+                    f"{tool} detected {count} infected file(s)"
+                    + (f" out of {scanned} scanned" if scanned else "")
+                    + "."
+                )
+            elif data.get("packet_count") is not None:
+                summary = f"{tool} analysed {data.get('packet_count', 0)} packet(s)."
+            elif data.get("exploits_count") is not None:
+                count = data.get("exploits_count", 0)
+                summary = f"{tool} found {count} matching exploit(s)." if count else f"{tool} found no matching exploits."
+            elif data.get("findings_count") is not None:
+                count = data.get("findings_count", 0)
+                summary = f"{tool} produced {count} finding(s)."
             elif data.get("error"):
                 summary = f"{tool} failed: {data.get('error')}"
             else:
@@ -154,7 +173,7 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
     findings = normalized.get("findings") or []
     if not findings:
         if isinstance(data, dict):
-            for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "exploits", "issues", "alerts", "found_paths", "ssl_issues"):
+            for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "exploits", "issues", "alerts", "found_paths", "ssl_issues", "scan_issues", "packet_issues"):
                 value = data.get(key)
                 if isinstance(value, list) and value:
                     findings = [_extract_text(item) for item in value if _extract_text(item)]
@@ -552,10 +571,10 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             f.write(tex)
         
         # Copy logo to temp directory if it exists
-        logo_src = os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg")
+        logo_src = os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg")
         if os.path.exists(logo_src):
             import shutil
-            logo_dst = os.path.join(td, "logo_swissknife.jpg")
+            logo_dst = os.path.join(td, "logo_sdv.jpg")
             shutil.copy2(logo_src, logo_dst)
 
         # run pdflatex twice for cross-refs (if any)

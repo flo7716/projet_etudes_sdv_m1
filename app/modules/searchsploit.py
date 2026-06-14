@@ -1,42 +1,56 @@
+import re
 import subprocess
-import xml.etree.ElementTree as ET
+
 from app.modules.interactive import prompt_text
 
 
-def parse_searchsploit(output):
-
-    results = []
+def parse_searchsploit(output: str):
+    findings = []
+    in_table = False
 
     for line in output.splitlines():
+        line_stripped = line.strip()
 
-        if line.startswith("No exploits found"):
+        if not line_stripped:
             continue
 
-        if line.strip() == "":
+        # Skip header/separator lines
+        if re.match(r"^[-=|]+$", line_stripped):
+            in_table = True
+            continue
+        if line_stripped.lower().startswith("exploit title"):
+            in_table = True
+            continue
+        if line_stripped.startswith("No exploits found"):
+            continue
+        if line_stripped.startswith("Shellcodes:"):
+            break  # stop after exploits section
+
+        # Parse table rows: "Title  |  Path"
+        if in_table and "|" in line:
+            parts = [p.strip() for p in line_stripped.split("|", 1)]
+            if len(parts) == 2 and parts[0] and parts[1]:
+                title, path = parts
+                findings.append(f"{title} — {path}")
             continue
 
-        results.append(line.strip())
+        # Fallback: non-table output lines
+        if line_stripped and not line_stripped.startswith("-"):
+            findings.append(line_stripped)
 
     return {
-        "exploits_count": len(results),
-        "exploits": results
+        "exploits_count": len(findings),
+        "findings": findings,
     }
 
-def run_searchsploit(target, options=""):
 
-    command = [
-        "searchsploit",
-        target
-    ]
+def run_searchsploit(target, options=""):
+    command = ["searchsploit", target]
     if options:
         command.extend(options.split())
 
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(command, capture_output=True, text=True)
     except FileNotFoundError as e:
         raise FileNotFoundError(
             "searchsploit is not installed or not available in PATH. "
