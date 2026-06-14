@@ -3,7 +3,6 @@
 
 $ErrorActionPreference = "Stop"
 
-# Colors helper
 function Write-Color($msg, $color) { Write-Host $msg -ForegroundColor $color }
 
 # Check project root
@@ -14,7 +13,7 @@ if (-not (Test-Path "docker-compose.yml")) {
 
 Write-Color "Checking Docker setup..." Yellow
 
-$IMAGE_NAME     = "projet_etudes_sdv_m1-api"
+$IMAGE_NAME      = "projet_etudes_sdv_m1-api"
 $DVWA_IMAGE_NAME = "vulnerables/web-dvwa"
 
 # Build API image if missing
@@ -22,9 +21,9 @@ $existingApi = docker images --format "{{.Repository}}:{{.Tag}}" | Where-Object 
 if (-not $existingApi) {
     Write-Color "Building API Docker image..." Yellow
     docker build -t $IMAGE_NAME -f Dockerfile .
-    Write-Color "✓ API image built successfully" Green
+    Write-Color "OK - API image built successfully" Green
 } else {
-    Write-Color "✓ API image already exists" Green
+    Write-Color "OK - API image already exists" Green
 }
 
 Clear-Host
@@ -36,9 +35,9 @@ if ($reply -match "^[Yy]$") {
     if (-not $existingDvwa) {
         Write-Color "Pulling DVWA Docker image..." Yellow
         docker pull $DVWA_IMAGE_NAME
-        Write-Color "✓ DVWA image pulled successfully" Green
+        Write-Color "OK - DVWA image pulled successfully" Green
         docker compose up -d dvwa
-        Write-Color "✓ DVWA service started" Green
+        Write-Color "OK - DVWA service started" Green
 
         Start-Sleep -Seconds 5
 
@@ -52,40 +51,40 @@ if ($reply -match "^[Yy]$") {
             Write-Color "Error: DVWA container is not running." Red
         }
     } else {
-        Write-Color "✓ DVWA image already exists" Green
+        Write-Color "OK - DVWA image already exists" Green
     }
 }
 
 Write-Color "Launching interactive CLI..." Green
 
-# Banner
-Write-Host @"
+# Banner - written as individual Write-Host calls to avoid here-string pipe issues
+Write-Host ""
+Write-Host "     ____________________________" -ForegroundColor Red
+Write-Host " ___/  ________________________  \___" -ForegroundColor Red
+Write-Host "/  _   _   _   _   _   _   _   _   _  \ /" -ForegroundColor Red
+Write-Host "    \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_| /" -ForegroundColor Red
+Write-Host "     \__________________________/" -ForegroundColor Red
+Write-Host ""
+Write-Host "    PENTEST TOOLBOX - SWISSKNIFE CLI" -ForegroundColor Red
+Write-Host "    Security Testing Framework" -ForegroundColor Red
+Write-Host ""
 
-     ____________________________
- ___/  ________________________  \___
-/  _   _   _   _   _   _   _   _   _  \ /
-|_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_| /
-     \__________________________/
-
-    PENTEST TOOLBOX - SWISSKNIFE CLI
-    Security Testing Framework
-
-"@ -ForegroundColor Red
-
-# Get current directory in Unix format for Docker (handles drive letters)
-$pwd_unix = (Get-Location).Path -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+# Convert Windows path to Unix-style for Docker volume mount
+$currentPath = (Get-Location).Path
+$pwd_unix = $currentPath -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+$volumeArg = "${pwd_unix}:/app"
 
 docker compose run -it --rm `
-    -v "${pwd_unix}:/app" `
+    -v $volumeArg `
     -w /app `
     $IMAGE_NAME `
     python3 -m app.cli_interactive
 
 $exit_code = $LASTEXITCODE
 if ($exit_code -eq 0) {
-    Write-Color "✓ CLI session ended successfully" Green
+    Write-Color "OK - CLI session ended successfully" Green
 } else {
-    Write-Color "✗ CLI session ended with error code: $exit_code" Red
+    Write-Color "FAILED - CLI session ended with error code: $exit_code" Red
 }
 
 exit $exit_code
