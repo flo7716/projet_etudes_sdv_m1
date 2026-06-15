@@ -1,4 +1,6 @@
-# SWISSKNIFE PROJECT (SDV)
+# SWISSKNIFE PROJECT (SDV 1st-Year of Master degree)
+
+Developed by Florian ANDRE, Amine KAHLAOUI, Adeshilan MOSEBOLATAN and Anas TALIBI
 
 ![Logo](app/modules/model/swissknife_logo.jpg)
 
@@ -227,16 +229,16 @@ python -m app.cli_interactive
   → 🔍 NMAP - Network Scanning
     🔓 HYDRA - Brute-Force
     🔑 JOHN - Password Cracking
-    🕷️  NIKTO - Web Scanning
+    🕷️ NIKTO - Web Scanning
     📁 GOBUSTER - Directory Scanning
-    🗄️  SQLMAP - SQL Injection
+    🗄️ SQLMAP - SQL Injection
     🛜 AIRCRACK-NG - Wireless testing
     🧪 NUCLEI - Vulnerability scanning
     🛡️ MSFVENOM - Payload generation
     🔎 SEARCHSPLOIT - Vulnerability Search
-    🕷️  FFUF - Web Fuzzing
+    🕷️ FFUF - Web Fuzzing
     📊 PIPELINE - Run Full Pipeline
-    ℹ️  Information
+    ℹ️ Information
     ❌ Exit
 ```
 
