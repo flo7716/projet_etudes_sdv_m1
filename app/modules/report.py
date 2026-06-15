@@ -112,7 +112,7 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
         f"  \\item Score global de risque: {summary['risk_score']} / 100",
         "\\end{itemize}",
         _render_top_vulnerabilities(normalized),  # Désormais correctement importé et résolu
-        "\n\\subsection*{Priorités de remédiation}\n\\begin{itemize}\n  \\item À corriger sous 7 jours\n  \\item À corriger sous 30 jours\n  \\item À corriger sous 90 jours\n\\end{itemize}",
+        "\n\\subsection*{Priorités de remédiation}\n\\begin{itemize}\n  \\Critique : \\item À corriger sous 7 jours\n  \\Elevé : \\item À corriger sous 30 jours\n  \\Faible : \\item À corriger sous 90 jours\n\\end{itemize}",
         _render_criticality_matrix(_criticality_matrix_rows(normalized)),  # Désormais correctement importé et résolu
         "\\subsection*{Répartition des vulnérabilités}",
         "\\begin{itemize}",
