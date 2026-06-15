@@ -4,3 +4,4 @@ questionary
 rich
 sympy
 reportlab
+matplotlib
