@@ -1,5 +1,7 @@
 # SWISSKNIFE PROJECT (SDV)
 
+![Logo](app/modules/model/swissknife_logo.jpg)
+
 # README (Interactive CLI Guide)
 
 ## Overview
