@@ -571,10 +571,10 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             f.write(tex)
         
         # Copy logo to temp directory if it exists
-        logo_src = os.path.join(os.path.dirname(__file__), "model", "logo_sdv.jpg")
+        logo_src = os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg")
         if os.path.exists(logo_src):
             import shutil
-            logo_dst = os.path.join(td, "logo_sdv.jpg")
+            logo_dst = os.path.join(td, "swissknife_logo.jpg")
             shutil.copy2(logo_src, logo_dst)
 
         # run pdflatex twice for cross-refs (if any)

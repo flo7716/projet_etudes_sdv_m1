@@ -45,11 +45,12 @@ def display_banner():
 
 def run_interactive_tool(interactive_func, label):
     try:
+        console.print(f"[bold blue]▶ Starting {label}...[/bold blue]")
         result = interactive_func()
         console.print(f"[green]✓ {label} completed[/green]")
         console.print(result)
     except Exception as e:
-        console.print(f"[red]✗ Error: {str(e)}[/red]")
+        console.print(f"[red]✗ Error while running {label}: {str(e)}[/red]")
 
 
 
@@ -175,6 +176,7 @@ def run_pipeline_interactive():
     results = {}
     for test in tests:
         try:
+            console.print(f"\n[bold blue]▶ Running {test.upper()}...[/bold blue]")
             options = pipeline_args.get(test, {}).get("options", "")
             raw_result = None
 
@@ -211,10 +213,12 @@ def run_pipeline_interactive():
                 raw_result = {"error": "Unknown test selected"}
 
             results[test] = normalize_tool_result(test, raw_result, target)  # ← the fix
+            console.print(f"[green]✓ {test.upper()} completed[/green]")
         except Exception as e:
             import traceback
             traceback.print_exc()
             results[test] = {"tool": test, "error": str(e), "summary": str(e), "findings": [], "severity": "medium", "recommendations": [], "raw_output": str(raw_result) if 'raw_result' in locals() else ""}
+            console.print(f"[red]✗ {test.upper()} failed: {str(e)}[/red]")
 
     report_title = f"Pentest report for {target} ({timestamp})"
     try:
