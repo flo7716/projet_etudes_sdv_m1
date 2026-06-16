@@ -1,3 +1,4 @@
+# app/modules/sqlmap.py
 import os
 import re
 import shlex
@@ -8,19 +9,28 @@ from app.modules.interactive import prompt_text
 
 
 def parse_sqlmap(output):
-    # SQLmap output is complex, for simplicity, return raw output
-    # In a real implementation, parse JSON if available
+    """Parse l'output brut de la console sqlmap."""
+    findings = []
+    severity = "low"
+    
+    # 1. Détection de base de la vulnérabilité
+    if "is vulnerable" in output or "confirming SQL injection" in output or "sqlmap identified the following injection point(s)" in output:
+        findings.append("SQL Injection vulnerability detected and confirmed.")
+        severity = "critical"
+    
+    # 2. Extraction des bases de données trouvées dans la console
+    db_matches = re.findall(r"Database:\s+([^\s]+)", output)
+    if db_matches:
+        for db in set(db_matches):
+            findings.append(f"Exposed Database: {db}")
+        severity = "critical"
+        
     return {
-        "output": output
+        "output": output,
+        "findings": findings,
+        "severity": severity,
+        "summary": "SQLmap injection testing completed." if not findings else "SQLmap confirmed critical SQL Injection."
     }
-
-
-def _should_prompt_for_sqlmap_output(line):
-    return bool(
-        "[Y/n]" in line
-        or "[y/N]" in line
-        or re.search(r"\b(do you want|do you want to|continue|choose|enter|try with|use the)\b", line, re.IGNORECASE)
-    )
 
 
 def _extract_sqlmap_log_dir(output: str):
@@ -34,16 +44,14 @@ def _read_sqlmap_log_files(log_dir: str):
     if not log_dir or not os.path.isdir(log_dir):
         return []
 
-    # Only include known text file extensions, skip binary files like session.sqlite
     TEXT_EXTENSIONS = {".log", ".txt", ".csv", ".json", ".xml", ".html"}
-
     log_files = []
     for root, _, files in os.walk(log_dir):
         for name in sorted(files):
             file_path = os.path.join(root, name)
             ext = os.path.splitext(name)[1].lower()
             if ext not in TEXT_EXTENSIONS:
-                continue  # ← skip session.sqlite and other binary files
+                continue
             if os.path.isfile(file_path):
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
@@ -57,45 +65,71 @@ def _read_sqlmap_log_files(log_dir: str):
     return log_files
 
 
-def _prompt_for_sqlmap_answer(prompt_text_line):
-    default = ""
-    if "[Y/n]" in prompt_text_line:
-        default = "y"
-    elif "[y/N]" in prompt_text_line:
-        default = "n"
-
-    answer = prompt_text(
-        f"sqlmap prompt:\n{prompt_text_line.strip()}\nAnswer:",
-        default=default,
-    )
-    return answer.strip() or default
-
-
 def _attach_log_files(result: dict) -> dict:
-    """Read sqlmap log files from disk and attach them to the result dict."""
+    """
+    Analyse les logs de dump (CSV/TXT) générés par SQLmap sur le disque
+    et enrichit dynamiquement la section 'findings' pour le rapport PDF.
+    """
     log_dir = _extract_sqlmap_log_dir(result.get("output", ""))
     if log_dir:
         result["log_dir"] = log_dir
         result["log_files"] = _read_sqlmap_log_files(log_dir)
+        
         log_text = []
         for entry in result["log_files"]:
             log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
+            
+            # --- ANALYSE DES FICHIERS DE LOG ET DES DUMPS ---
+            # Si SQLmap a extrait des tables ou des dumps utilisateur (fichiers CSV ou txt de dump)
+            if "dump" in entry["name"].lower() or entry["name"].endswith(".csv"):
+                # Compter le nombre de lignes (donc d'entrées/utilisateurs compromis)
+                lines = [l for l in entry["content"].splitlines() if l.strip()]
+                record_count = max(0, len(lines) - 1) # Élimine la ligne d'en-tête du CSV
+                
+                result["findings"].append(
+                    f"Data Exfiltration: Extracted table data '{entry['name']}' containing {record_count} records."
+                )
+                # Tenter d'extraire des couples utilisateur:mot de passe évidents s'ils apparaissent dans les fichiers
+                if "password" in entry["content"].lower() or "passwd" in entry["content"].lower():
+                    result["findings"].append(
+                        f"Critical Discovery: Plaintext or hashed credentials found inside extracted target logs."
+                    )
+            
+            # Si c'est un résumé de dictionnaire ou de structure
+            elif "table" in entry["name"].lower():
+                result["findings"].append(f"Database Structure Harvested: See log file '{entry['name']}'.")
+
         result["log_summary"] = "\n".join(log_text).strip()
+        
+        # S'assurer que la sévérité passe au maximum si des données de tables ont été exfiltrées
+        if any("Data Exfiltration" in f for f in result["findings"]):
+            result["severity"] = "critical"
+            
     return result
 
 
 def run_sqlmap(target, options="", interactive=False):
-    command = ["sqlmap", "-u", target]
+    has_explicit_url = "-u " in options or "--url" in options
+    
+    if has_explicit_url:
+        command = ["sqlmap"]
+    else:
+        command = ["sqlmap", "-u", target]
+
     if options:
         try:
             command.extend(shlex.split(options))
         except ValueError:
             command.extend(options.split())
 
-    command.append("--batch")
-
+    # ==========================================
+    # CAS 1 : MODE INTERACTIF (STANDALONE SEUL)
+    # ==========================================
     if interactive:
-        output_lines = []
+        if "--batch" in command:
+            command.remove("--batch")
+            
+        output_chunks = []
         try:
             proc = subprocess.Popen(
                 command,
@@ -103,70 +137,66 @@ def run_sqlmap(target, options="", interactive=False):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1,
+                bufsize=0,
             )
 
             if proc.stdout is None:
                 raise RuntimeError("Failed to capture sqlmap process stdout")
 
-            for line in proc.stdout:
-                sys.stdout.write(line)
+            while True:
+                char = proc.stdout.read(1)
+                if not char:
+                    break
+                sys.stdout.write(char)
                 sys.stdout.flush()
-                output_lines.append(line)
+                output_chunks.append(char)
 
             proc.wait()
         except KeyboardInterrupt:
-            output_lines.append("\n[INFO] sqlmap session interrupted by the user.\n")
+            output_chunks.append("\n[INFO] sqlmap session interrupted by the user.\n")
 
-        result = parse_sqlmap("".join(output_lines))
-        return _attach_log_files(result)
+        parsed = parse_sqlmap("".join(output_chunks))
+        return _attach_log_files(parsed)
 
-    # Non-interactive: run with --batch and capture everything silently
-    command.append("--batch")
+    # ==========================================
+    # CAS 2 : MODE AUTOMATISÉ (PIPELINE GLOBAL)
+    # ==========================================
+    if "--batch" not in command:
+        command.append("--batch")
+        
+    answers_hook = "skip specific=Y,include all=Y,random integer=Y,keep testing=N"
+    if "--answers" not in command:
+        command.extend(["--answers", answers_hook])
 
-    output_lines = []
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.run(
             command,
-            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1,
-            universal_newlines=True,
+            errors="replace",
+            timeout=300
         )
-
-        if proc.stdout is None or proc.stdin is None:
-            raise RuntimeError("Failed to capture sqlmap process streams")
-
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            output_lines.append(line)
-
-        remaining = proc.stdout.read()
-        if remaining:
-            output_lines.append(remaining)
-
-        proc.wait()
+        output = proc.stdout
+    except subprocess.TimeoutExpired as te:
+        output = str(te.stdout if te.stdout else "") + "\n[ERROR] SQLmap exceeded maximum pipeline execution timeout.\n"
     except KeyboardInterrupt:
-        output_lines.append("\n[INFO] sqlmap session interrupted by the user.\n")
+        output = "\n[INFO] sqlmap session interrupted by the user.\n"
     except Exception as exc:
-        output_lines.append(f"[ERROR] {exc}\n")
+        output = f"[ERROR] Execution failed: {exc}\n"
 
-    result = parse_sqlmap("".join(output_lines))
-    return _attach_log_files(result)
+    parsed = parse_sqlmap(output)
+    return _attach_log_files(parsed)
 
 
 def run_sqlmap_interactive():
     target = prompt_text(
-        "Enter target URL:",
+        "Enter target URL (e.g. http://10.130.141.110/vuln.php?id=1):",
         validate=lambda x: len(x) > 0,
     )
     options = prompt_text(
         "Additional sqlmap options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning sqlmap on {target}...")
+    print(f"\nRunning interactive sqlmap on {target}...")
     return run_sqlmap(target, options, interactive=True)

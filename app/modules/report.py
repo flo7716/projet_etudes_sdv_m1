@@ -5,14 +5,11 @@ import subprocess
 import tempfile
 from typing import Dict, Any
 
-# Imports propres depuis nos nouveaux fichiers "minicodes"
-# Note : Ajusté selon ton package 'app.modules.report_tools' fourni dans ton code
+# Imports propres depuis tes minicodes éclatés
 from app.modules.report_tools.config import SEVERITY_WEIGHTS
 from app.modules.report_tools.utils import _escape_latex, _truncate_text
 from app.modules.report_tools.charts import generate_charts, generate_tool_chart
 from app.modules.report_tools.templates import LATEX_TEMPLATE, render_methodology_page, render_architecture_page
-
-# Ajout des imports explicites de toutes les fonctions de rendu requises pour l'orchestration globale
 from app.modules.report_tools.tools_renderer import (
     normalize_tool_result,
     _render_top_vulnerabilities,
@@ -73,7 +70,7 @@ def _load_report_template() -> str:
     """Tente de charger un modèle de document report.tex personnalisé si disponible."""
     template_path = os.path.join(os.path.dirname(__file__), "model", "report.tex")
     try:
-        with open(template_path, "r", encoding="utf-8") as f:
+        with open(template_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     except FileNotFoundError:
         return LATEX_TEMPLATE
@@ -111,9 +108,9 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
         f"  \\item Total des vulnérabilités: {summary['total_findings']}",
         f"  \\item Score global de risque: {summary['risk_score']} / 100",
         "\\end{itemize}",
-        _render_top_vulnerabilities(normalized),  # Désormais correctement importé et résolu
-        "\n\\subsection*{Priorités de remédiation}\n\\begin{itemize}\n  \\Critique : \\item À corriger sous 7 jours\n  \\Elevé : \\item À corriger sous 30 jours\n  \\Faible : \\item À corriger sous 90 jours\n\\end{itemize}",
-        _render_criticality_matrix(_criticality_matrix_rows(normalized)),  # Désormais correctement importé et résolu
+        _render_top_vulnerabilities(normalized),
+        "\n\\subsection*{Priorités de remédiation}\n\\begin{itemize}\n  \\item À corriger sous 7 jours\n  \\item À corriger sous 30 jours\n  \\item À corriger sous 90 jours\n\\end{itemize}",
+        _render_criticality_matrix(_criticality_matrix_rows(normalized)),
         "\\subsection*{Répartition des vulnérabilités}",
         "\\begin{itemize}",
     ]
@@ -158,8 +155,8 @@ def _render_results_as_latex(results: Dict[str, Any]) -> str:
         render_architecture_page(),
     ]
     for tool, data in normalized.items():
-        pages.append(_render_tool_page(tool, data))  # Désormais correctement importé et résolu
-    pages.append(_render_annex_page(normalized))      # Désormais correctement importé et résolu
+        pages.append(_render_tool_page(tool, data))
+    pages.append(_render_annex_page(normalized))
     return "\n\\newpage\n".join(pages)
 
 
@@ -190,11 +187,9 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     """
     template = _load_report_template()
     
-    # Injection dynamique sécurisée du package float nécessaire aux graphiques [H]
     if "\\usepackage{float}" not in template:
         template = template.replace("\\begin{document}", "\\usepackage{float}\n\\begin{document}")
 
-    # Transformation des résultats en code LaTeX structuré
     tex_body = _render_results_as_latex(results)
     if TEMPLATE_PLACEHOLDER in template:
         tex = template.replace(TEMPLATE_PLACEHOLDER, tex_body)
@@ -203,7 +198,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     else:
         tex = LATEX_TEMPLATE % tex_body
 
-    # Injection dynamique du titre du document
     if title and TITLE_PLACEHOLDER in tex:
         tex = tex.replace(TITLE_PLACEHOLDER, _escape_latex(title))
     else:
@@ -226,10 +220,9 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    # Création du dossier de build isolé et appels à pdflatex
     with tempfile.TemporaryDirectory() as td:
         tex_path = os.path.join(td, "report.tex")
-        with open(tex_path, "w", encoding="utf-8") as f:
+        with open(tex_path, "w", encoding="utf-8", errors="replace") as f:
             f.write(tex)
         
         logo_src = os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg")
@@ -241,13 +234,15 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             generated_pdf = os.path.join(td, "report.pdf")
             last_stdout, last_stderr = "", ""
             
-            # Deux passes indispensables pour stabiliser la matrice de criticité et les tables des matières
+            # Correction de la vulnérabilité au décodage de flux via 'errors="replace"'
             for i in range(2):
                 proc = subprocess.run(
                     ["pdflatex", "-interaction=nonstopmode", "report.tex"],
                     cwd=td,
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace"
                 )
                 last_stdout = proc.stdout
                 last_stderr = proc.stderr
@@ -258,7 +253,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
                         "log": proc.stdout + proc.stderr,
                     }
             
-            # Déplacement du PDF du cache temporaire vers la destination finale
             try:
                 os.replace(generated_pdf, output_path)
             except OSError as e:
@@ -272,7 +266,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
 
             info = {"pdf_path": output_path, "pdflatex_stdout": last_stdout, "pdflatex_stderr": last_stderr}
 
-            # Gestion de la copie persistante vers l'espace de stockage de la machine hôte
             if copy_to_host:
                 import shutil
                 if host_dest:
