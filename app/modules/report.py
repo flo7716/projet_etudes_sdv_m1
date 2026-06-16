@@ -5,9 +5,8 @@ import subprocess
 import tempfile
 from typing import Dict, Any
 
-# Imports propres depuis tes minicodes éclatés
 from app.modules.report_tools.config import SEVERITY_WEIGHTS
-from app.modules.report_tools.utils import _escape_latex, _truncate_text
+from app.modules.report_tools.utils import _escape_latex
 from app.modules.report_tools.charts import generate_charts, generate_tool_chart
 from app.modules.report_tools.templates import LATEX_TEMPLATE, render_methodology_page, render_architecture_page
 from app.modules.report_tools.tools_renderer import (
@@ -22,16 +21,13 @@ from app.modules.report_tools.tools_renderer import (
 TEMPLATE_PLACEHOLDER = "%%REPORT_CONTENT%%"
 TITLE_PLACEHOLDER = "%%REPORT_TITLE%%"
 
-
 def _risk_level_label(score: int) -> str:
-    if score >= 75: return "[CRITIQUE] Elevé"
-    if score >= 50: return "[MOYEN] Moyen"
-    if score >= 25: return "[FAIBLE] Faible"
-    return "[BAS] Bas"
-
+    if score >= 75: return "[CRITICAL] High Infrastructure Exposure"
+    if score >= 50: return "[MEDIUM] Moderate System Exposure"
+    if score >= 25: return "[LOW] Controlled System Exposure"
+    return "[INFO] Secured / Low Risk Profile"
 
 def build_global_summary(results: Dict[str, Any]) -> Dict[str, Any]:
-    """Calcule les métriques globales et agrège les recommandations du rapport."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     severity_breakdown = {label: 0 for label in ("low", "medium", "high", "critical")}
     total_findings = 0
@@ -65,9 +61,7 @@ def build_global_summary(results: Dict[str, Any]) -> Dict[str, Any]:
         "tool_scores": tool_scores,
     }
 
-
 def _load_report_template() -> str:
-    """Tente de charger un modèle de document report.tex personnalisé si disponible."""
     template_path = os.path.join(os.path.dirname(__file__), "model", "report.tex")
     try:
         with open(template_path, "r", encoding="utf-8", errors="replace") as f:
@@ -75,69 +69,63 @@ def _load_report_template() -> str:
     except FileNotFoundError:
         return LATEX_TEMPLATE
 
-
 def _render_chart_section(chart_paths: dict[str, str]) -> str:
-    """Génère la section Visualisation en figeant les graphiques avec l'option [H]."""
     if not chart_paths:
         return ""
-    parts = ["\\section*{Visualisation des données}", "\\begin{figure}[H]", "\\centering"]
+    parts = ["\\section*{Data Visualizations and Metrics Mapping}", "\\begin{figure}[H]", "\\centering"]
     if chart_paths.get("severity_chart"):
         parts.append(f"\\includegraphics[width=0.7\\linewidth]{{{_escape_latex(chart_paths['severity_chart'])}}}")
-        parts.append("\\caption{Répartition des vulnérabilités par criticité}")
+        parts.append("\\caption{Global Vulnerability Breakdown by Severity}")
     if chart_paths.get("tool_chart"):
         parts.append("\\vspace{5mm}")
         parts.append(f"\\includegraphics[width=0.8\\linewidth]{{{_escape_latex(chart_paths['tool_chart'])}}}")
-        parts.append("\\caption{Nombre de résultats par outil}")
+        parts.append("\\caption{Identified Findings Count per Tool Module}")
     parts.append("\\end{figure}")
     return "\n".join(parts)
 
-
 def _render_summary_page(results: Dict[str, Any]) -> str:
-    """Génère le code LaTeX complet pour la page Executive Summary."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     summary = build_global_summary(normalized)
     tests = sorted(normalized.keys())
 
     parts = [
         "\\section*{Executive Summary}",
-        "\\subsection*{Niveau de risque global}",
-        f"{_escape_latex(summary['risk_level'])}\\\\",
-        "\\subsection*{Résumé rapide}",
+        "\\subsection*{Overall Calculated Risk Profile}",
+        f"\\textbf{{{_escape_latex(summary['risk_level'])}}}\\\\",
+        "\\subsection*{High-Level Assessment Metrics}",
         "\\begin{itemize}",
-        f"  \\item Total des outils exécutés: {summary['total_tools']}",
-        f"  \\item Total des vulnérabilités: {summary['total_findings']}",
-        f"  \\item Score global de risque: {summary['risk_score']} / 100",
+        f"  \\item Total orchestrated modules executed: {summary['total_tools']}",
+        f"  \\item Total consolidated security findings: {summary['total_findings']}",
+        f"  \\item Evaluated system risk score: {summary['risk_score']} / 100",
         "\\end{itemize}",
         _render_top_vulnerabilities(normalized),
-        "\n\\subsection*{Priorités de remédiation}\n\\begin{itemize}\n  \\item À corriger sous 7 jours\n  \\item À corriger sous 30 jours\n  \\item À corriger sous 90 jours\n\\end{itemize}",
+        "\n\\subsection*{Remediation & Patching Timeframe Windows}\n\\begin{itemize}\n  \\item Critical Findings: Remediation required within 48 Hours.\n  \\item High Findings: Remediation required within 7 Days.\n  \\item Medium / Low Findings: Remediation scheduled within 30-90 Days.\n\\end{itemize}",
         _render_criticality_matrix(_criticality_matrix_rows(normalized)),
-        "\\subsection*{Répartition des vulnérabilités}",
+        "\\subsection*{Metrics Distribution Overview}",
         "\\begin{itemize}",
     ]
     for label, count in summary["severity_breakdown"].items():
         if count:
-            parts.append(f"  \\item {label.title()}: {count}")
+            parts.append(f"  \\item {label.title()} Findings Count: {count}")
     parts.append("\\end{itemize}")
-    parts.append("\\paragraph{Synthèse des recommandations}")
+    parts.append("\\subsection*{Consolidated Hardening Action Plan}")
     parts.append("\\begin{itemize}")
     for recommendation in summary["recommendations"]:
         parts.append(f"  \\item {_escape_latex(str(recommendation))}")
     parts.append("\\end{itemize}")
-    parts.append("\\subsection*{Statut par outil}")
+    parts.append("\\subsection*{Operational Module Registry}")
     parts.append("\\begin{itemize}")
     for tool in tests:
         data = normalized[tool]
         status = data.get("summary") or "Completed"
         severity = data.get("severity", "medium")
         parts.append(
-            f"  \\item \\textbf{{{_escape_latex(tool)}}}: {_escape_latex(str(status))} (risk: {severity})"
+            f"  \\item \\textbf{{{_escape_latex(tool.upper())}}}: Run Status -> Completed. Base calculated risk profile: \\textbf{{{severity.upper()}}}"
         )
     parts.append("\\end{itemize}")
     return "\n".join(parts)
 
-
 def _render_results_as_latex(results: Dict[str, Any]) -> str:
-    """Orchestre la construction séquentielle de chaque section du rapport."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     charts = {}
     try:
@@ -159,19 +147,9 @@ def _render_results_as_latex(results: Dict[str, Any]) -> str:
     pages.append(_render_annex_page(normalized))
     return "\n\\newpage\n".join(pages)
 
-
 def _find_host_mount_candidates():
-    """Identifie les points de montage hôtes pour copier le rapport généré."""
-    candidates = [
-        os.environ.get("HOST_OUTPUT_DIR"),
-        "/host",
-        "/host_mnt",
-        "/mnt",
-        "/app",
-        "/workspace",
-    ]
+    candidates = [os.environ.get("HOST_OUTPUT_DIR"), "/host", "/host_mnt", "/mnt", "/app", "/workspace"]
     return [c for c in candidates if c]
-
 
 def _is_mount(path: str) -> bool:
     try:
@@ -179,12 +157,7 @@ def _is_mount(path: str) -> bool:
     except Exception:
         return False
 
-
 def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, copy_to_host: bool = False, host_dest: str | None = None) -> Dict[str, Any]:
-    """
-    Fonction principale (Maître) du module de reporting.
-    Compile l'ensemble des résultats collectés sous forme de document PDF.
-    """
     template = _load_report_template()
     
     if "\\usepackage{float}" not in template:
@@ -211,7 +184,7 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
                         f"\\title{{{_escape_latex(title)}}}\n\\begin{{document}}",
                     )
             if "\\maketitle" in tex and "\\title" in tex and tex.find("\\maketitle") < tex.find("\\title"):
-                tex = tex.replace("\\maketitle", "", 1)
+                tex = tex.replace("\\maketitle", "")
                 tex = tex.replace("\\begin{document}", "\\begin{document}\n\\maketitle", 1)
         except Exception:
             pass
@@ -234,7 +207,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             generated_pdf = os.path.join(td, "report.pdf")
             last_stdout, last_stderr = "", ""
             
-            # Correction de la vulnérabilité au décodage de flux via 'errors="replace"'
             for i in range(2):
                 proc = subprocess.run(
                     ["pdflatex", "-interaction=nonstopmode", "report.tex"],
@@ -249,7 +221,7 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
 
                 if proc.returncode != 0:
                     return {
-                        "error": "pdflatex failed",
+                        "error": "pdflatex compilation failure",
                         "log": proc.stdout + proc.stderr,
                     }
             
@@ -298,6 +270,6 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             return info
 
         except FileNotFoundError:
-            return {"error": "pdflatex not found"}
+            return {"error": "pdflatex binary not found within environment path"}
         except Exception as e:
             return {"error": str(e)}

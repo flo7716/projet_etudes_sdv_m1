@@ -1,8 +1,8 @@
-# app/modules/report/tools_renderer.py
+# app/modules/report_tools/tools_renderer.py
 import json
 from typing import Any, Dict, List
 from .config import SEVERITY_WEIGHTS, TOOL_OBJECTIVES, TOOL_RECOMMENDATIONS
-from .utils import _clean_text, _sanitize_data, _extract_text, _escape_latex, _truncate_text
+from .utils import _escape_latex
 
 def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Dict[str, Any]:
     if isinstance(data, dict) and data.get("tool") and "findings" in data:
@@ -12,217 +12,133 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
 
     normalized.setdefault("tool", tool)
     normalized.setdefault("target", target or (data.get("target") if isinstance(data, dict) else None))
-    normalized.setdefault("summary", "")
+    normalized.setdefault("summary", "Execution completed successfully.")
     normalized.setdefault("findings", [])
     normalized.setdefault("raw_output", data)
     normalized.setdefault("objective", TOOL_OBJECTIVES.get(tool, "Collect evidence and highlight exposure areas."))
     normalized.setdefault("recommendations", [TOOL_RECOMMENDATIONS.get(tool, "Review and remediate the reported findings promptly.")])
 
-    # Logique d'adaptation de sévérité par outil
     severity = "low"
     if isinstance(data, dict) and data.get("severity"):
         severity = data.get("severity").lower()
-    elif isinstance(data, dict):
-        if tool == "nmap":
-            severity = "medium" if data.get("open_ports_count", 0) > 10 else "low"
-        elif tool in ["gobuster", "ffuf"]:
-            severity = "medium" if data.get("found_paths_count", 0) > 5 else "low"
-        elif tool in ["nikto", "nuclei"]:
-            vulns = data.get("vulnerabilities_count", 0) or data.get("findings_count", 0)
-            raw_str = str(data.get("raw_output", "")).lower()
-            if vulns > 3 or "critical" in raw_str or "rce" in raw_str: severity = "critical"
-            elif vulns > 0 or "high" in raw_str: severity = "high"
-        elif tool in ["sqlmap", "hydra", "john"]:
-            has_findings = len(data.get("findings", [])) > 0 or data.get("cracked_passwords_count", 0) > 0
-            severity = "critical" if tool == "sqlmap" and has_findings else ("high" if has_findings else "low")
+    return normalized
 
-    if severity not in SEVERITY_WEIGHTS: severity = "medium"
-    normalized["severity"] = severity
-
-    # Extraction des preuves (findings) manquantes
-    findings = normalized.get("findings") or []
-    if not findings and isinstance(data, dict):
-        for key in ("findings", "vulnerabilities", "cracked_passwords", "open_ports", "found_paths"):
-            value = data.get(key)
-            if isinstance(value, list) and value:
-                findings = [_extract_text(item) for item in value if _extract_text(item)]
-                break
-    if not findings and isinstance(data, str):
-        findings = [line.strip() for line in data.splitlines() if line.strip()][:8]
-    normalized["findings"] = findings
-
-    # Logique de génération de summary automatique
-    if not normalized["summary"] and isinstance(data, dict):
-        if data.get("open_ports_count") is not None:
-            normalized["summary"] = f"{tool} reported {data.get('open_ports_count')} open port(s)."
-        else:
-            normalized["summary"] = f"{tool} completed with evidence."
-            
-    return _sanitize_data(normalized)
-
-
-# ==========================================
-# FONCTIONS MANQUANTES DE L'EXECUTIVE SUMMARY
-# ==========================================
-
-def _extract_top_vulnerabilities(normalized_results: Dict[str, Any], limit: int = 5) -> List[Dict[str, str]]:
-    """Extrait et trie les vulnérabilités les plus critiques trouvées par les outils."""
-    entries = []
+def _render_top_vulnerabilities(normalized_results: Dict[str, Any]) -> str:
+    sections = ["\\subsection*{Critical Vulnerability Highlights}"]
+    found = False
     for tool, data in normalized_results.items():
-        severity = data.get("severity", "medium")
-        findings = data.get("findings") or []
-        if findings:
-            entries.append({"tool": tool, "finding": _truncate_text(str(findings[0])), "severity": severity})
-        elif data.get("summary"):
-            entries.append({"tool": tool, "finding": _truncate_text(str(data.get("summary"))), "severity": severity})
-    entries.sort(key=lambda item: SEVERITY_WEIGHTS.get(item["severity"], 2), reverse=True)
-    return entries[:limit]
+        if data.get("severity") in ["high", "critical"]:
+            found = True
+            sections.append(f"\\textbf{{[{data['severity'].upper()}] Module {tool.upper()}}}: {data.get('summary')}\\\\")
+    if not found:
+        sections.append("No critical or high severity vulnerabilities were detected during this pipeline execution.")
+    return "\n".join(sections)
 
-
-def _render_top_vulnerabilities(normalized_results: Dict[str, Any], limit: int = 5) -> str:
-    """Génère le rendu LaTeX de la liste des principales vulnérabilités."""
-    entries = _extract_top_vulnerabilities(normalized_results, limit)
-    if not entries:
-        return "Aucune vulnérabilité structurée n'a été extraite."
-    lines = ["\\subsection*{Principales vulnérabilités}", "\\begin{enumerate}"]
-    for entry in entries:
-        lines.append(f"  \\item \\textbf{{{_escape_latex(entry['tool'].title())}}} ({entry['severity'].title()}): {_escape_latex(entry['finding'])}")
-    lines.append("\\end{enumerate}")
-    return "\n".join(lines)
-
-
-def _criticality_matrix_rows(normalized_results: Dict[str, Any], limit: int = 4) -> List[Dict[str, str]]:
-    """Formate les lignes pour alimenter la matrice de criticité."""
+def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[Dict[str, str]]:
     rows = []
-    top_vulns = _extract_top_vulnerabilities(normalized_results, limit)
-    mapping = {
-        "critical": ("Élevé", "Élevée", "Critique"),
-        "high": ("Élevé", "Moyenne", "Haute"),
-        "medium": ("Moyen", "Moyenne", "Moyenne"),
-        "low": ("Faible", "Élevée", "Faible"),
-    }
-    for entry in top_vulns:
-        impact, probability, criticality = mapping.get(entry["severity"], ("Moyen", "Moyenne", "Moyenne"))
-        rows.append({
-            "vulnerability": entry["finding"],
-            "impact": impact,
-            "probability": probability,
-            "criticality": criticality,
-        })
+    for tool, data in normalized_results.items():
+        findings = data.get("findings") or []
+        severity = data.get("severity", "low")
+        if not findings:
+            rows.append({"tool": tool.upper(), "finding": "No critical anomalies discovered.", "severity": severity})
+        else:
+            for finding in findings:
+                rows.append({"tool": tool.upper(), "finding": str(finding), "severity": severity})
     return rows
 
-
-def _render_criticality_matrix(rows: List[Dict[str, str]]) -> str:
-    """Génère le tableau LaTeX représentant la matrice de criticité."""
-    if not rows:
+def _render_criticality_matrix(matrix_rows: List[Dict[str, str]]) -> str:
+    if not matrix_rows:
         return ""
-    lines = [
-        "\\subsection*{Matrice de criticité}",
-        "\\begin{tabular}{|p{6cm}|c|c|c|}",
+    parts = [
+        "\\subsection*{Identified Vulnerabilities Matrix}",
+        "\\begin{table}[H]",
+        "\\centering",
+        "\\begin{tabular}{|l|p{9cm}|c|}",
         "\\hline",
-        "\\textbf{Vulnérabilité} & \\textbf{Impact} & \\textbf{Probabilité} & \\textbf{Criticité}\\\\",
-        "\\hline",
+        "\\textbf{Module} & \\textbf{Detected Threat / Vulnerability Description} & \\textbf{Severity} \\\\",
+        "\\hline"
     ]
-    for row in rows:
-        lines.append(
-            f"{_escape_latex(row['vulnerability'])} & {_escape_latex(row['impact'])} & {_escape_latex(row['probability'])} & {_escape_latex(row['criticality'])}\\\\"
-        )
-        lines.append("\\hline")
-    lines.append("\\end{tabular}")
-    return "\n".join(lines)
+    
+    color_map = {
+        "critical": "vuln_critical",
+        "high": "vuln_high",
+        "medium": "vuln_medium",
+        "weak": "vuln_medium",
+        "low": "vuln_low"
+    }
 
-
-# ==========================================
-# FONCTIONS DE RENDU DES PAGES INDIVIDUELLES
-# ==========================================
-
-def render_nmap_data(data: Dict[str, Any]) -> str:
-    parts = [f"\\textbf{{Host Status}}: {_escape_latex(str(data.get('status', 'unknown')))}\\\\"]
-    open_ports = data.get("open_ports", [])
-    if open_ports:
-        parts.append("\\begin{itemize}")
-        for port in open_ports:
-            if isinstance(port, dict):
-                parts.append(f"  \\item Port {port.get('port')}/{port.get('protocol')} - {port.get('state', 'open')}")
-            else:
-                parts.append(f"  \\item Port {_escape_latex(str(port))}")
-        parts.append("\\end{itemize}")
+    for row in matrix_rows:
+        tool = _escape_latex(row.get("tool", "UNKNOWN"))
+        finding = _escape_latex(row.get("finding", ""))
+        severity = row.get("severity", "low").lower()
+        
+        color = color_map.get(severity, "white")
+        parts.append(f"{tool} & {finding} & \\cellcolor{{{color}}}\\textbf{{{severity.upper()}}} \\\\")
+        parts.append("\\hline")
+        
+    parts.append("\\end{tabular}")
+    parts.append("\\caption{Comprehensive security matrix across active modules}")
+    parts.append("\\end{table}")
     return "\n".join(parts)
 
+def render_nmap_data(normalized: Dict[str, Any]) -> str:
+    lines = ["\\begin{itemize}"]
+    lines.append(f"  \\item Status: {_escape_latex(str(normalized.get('raw_output', {}).get('status', 'unknown')))}")
+    lines.append(f"  \\item Total open ports: {normalized.get('raw_output', {}).get('open_ports_count', 0)}")
+    lines.append("\\end{itemize}")
+    return "\n".join(lines)
 
-def render_verbatim(data: Any) -> str:
-    try:
-        dump = json.dumps(_sanitize_data(data), ensure_ascii=False, indent=2)
-    except Exception:
-        dump = repr(_sanitize_data(data))
-    return "\\begin{Verbatim}[fontsize=\\small]\n" + dump + "\n\\end{Verbatim}"
-
-
-def _render_tool_page(tool: str, data: Any) -> str:
-    """Génère la page de rapport détaillée d'un outil donné."""
-    normalized = normalize_tool_result(tool, data)
-    title = f"\\section*{{{_escape_latex(tool.title())}}}"
-
-    if normalized.get("error"):
-        return title + "\n\\textbf{Error}: " + _escape_latex(str(normalized.get("error")))
-
-    findings = normalized.get("findings") or []
-    recommendations = normalized.get("recommendations") or []
-    severity = normalized.get("severity", "medium")
-
+def _render_tool_page(tool: str, normalized: Dict[str, Any]) -> str:
+    severity = normalized.get("severity", "low").lower()
+    recommendations = normalized.get("recommendations", [])
+    
+    title = f"\\section{{Module Audit Report: {tool.upper()}}}"
     sections = [
-        "\\subsection*{Objectif}",
-        _escape_latex(normalized.get("objective")) + "\\\\",
-        "\\subsection*{Cible}",
-        _escape_latex(str(normalized.get("target") or "Non spécifié")) + "\\\\",
-        "\\subsection*{Résumé}",
-        _escape_latex(str(normalized.get("summary"))) + "\\\\",
-        "\\subsection*{Preuves}",
+        "\\subsection*{Operational Module Objective}",
+        _escape_latex(normalized.get("objective", "")),
+        "\\subsection*{Technical Summary}",
+        _escape_latex(normalized.get("summary", "")),
+        "\\subsection*{Expected Threat Impact Analysis}",
+        "\\begin{itemize}"
     ]
-
-    if findings:
-        sections.append("\\begin{itemize}")
-        for item in findings[:4]:
-            sections.append(f"  \\item {_escape_latex(str(item))}")
-        sections.append("\\end{itemize}")
-    else:
-        sections.append("Aucune preuve structurée disponible. Voir l'annexe technique.\\\\")
-
-    sections.extend(["\\subsection*{Impact}", "\\begin{itemize}"])
+    
     if severity == "critical":
-        sections.append("  \\item Impact critique : Accès non autorisé complet ou exécution de code à distance (RCE).")
+        sections.append("  \\item Critical Threat Level: Immediate risk of unauthenticated Remote Code Execution (RCE) or total database breach.")
     elif severity == "high":
-        sections.append("  \\item Impact élevé : Risque important de fuite de données ou compromission d'application.")
+        sections.append("  \\item High Threat Level: Significant business exposure, data exfiltration potential or corporate identity theft risk.")
     elif severity == "medium":
-        sections.append("  \\item Impact moyen : Exposition d'informations sensibles nécessitant un correctif rapide.")
+        sections.append("  \\item Medium Threat Level: Software version disclosure or configuration leak requiring prompt patch scheduling.")
     else:
-        sections.append("  \\item Impact faible : Risque minimal direct, conseil de durcissement.")
+        sections.append("  \\item Low Threat Level: Minimum direct exploit risk. Hardening advisory.")
     sections.append("\\end{itemize}")
 
-    sections.extend(["\\subsection*{Remédiation}", "\\begin{itemize}"])
-    for recommendation in recommendations[:5]:
-        sections.append(f"  \\item {_escape_latex(str(recommendation))}")
+    sections.extend(["\\subsection*{Remediation & Hardening Action Plan}", "\\begin{itemize}"])
+    for rec in recommendations[:5]:
+        sections.append(f"  \\item {_escape_latex(str(rec))}")
     sections.append("\\end{itemize}")
     
     sections.extend([
-        "\\subsection*{Niveau de risque}",
-        f"{_escape_latex(severity.title())}\\\\"
+        "\\subsection*{Calculated Asset Risk Level}",
+        f"Assigned Level: \\textbf{{{severity.upper()}}}\\\\"
     ])
 
-    if tool == "nmap":
-        sections.append("\\subsection*{Détails réseau}")
+    if tool.lower() == "nmap":
+        sections.append("\\subsection*{Network Specific Metrics}")
         sections.append(render_nmap_data(normalized))
 
     return title + "\n" + "\n".join(sections)
 
-
 def _render_annex_page(normalized_results: Dict[str, Any]) -> str:
-    """Génère l'annexe de fin de document avec les données brutes."""
-    parts = ["\\section*{Annexe: détails techniques bruts}"]
+    parts = ["\\section*{Technical Appendix: Raw Structural Output Data}"]
     for tool, data in normalized_results.items():
         raw_output = data.get("raw_output")
         if not raw_output:
             continue
-        parts.append(f"\\subsection*{{{_escape_latex(tool.title())}}}")
-        parts.append(render_verbatim(raw_output))
+        parts.append(f"\\subsection*{{Module: {tool.upper()}}}")
+        parts.append("\\begin{verbatim}")
+        if isinstance(raw_output, (dict, list)):
+            parts.append(json.dumps(raw_output, indent=2)[:2000])
+        else:
+            parts.append(str(raw_output)[:2000])
+        parts.append("\\end{verbatim}")
     return "\n".join(parts)

@@ -1,5 +1,6 @@
-# app/modules/report/config.py
+# app/modules/report_tools/config.py
 
+# Severity weights used for calculating the global risk score
 SEVERITY_WEIGHTS = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
 TOOL_OBJECTIVES = {

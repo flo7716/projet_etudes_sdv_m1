@@ -1,4 +1,4 @@
-# app/modules/report/utils.py
+# app/modules/report_tools/utils.py
 import re
 from typing import Any
 
@@ -37,12 +37,9 @@ def _sanitize_data(data: Any) -> Any:
 def _extract_text(value: Any) -> str:
     if isinstance(value, str):
         return _clean_text(value)
-    if isinstance(value, dict):
-        return ", ".join(f"{k}={_extract_text(v)}" for k, v in value.items())
-    if isinstance(value, list):
-        return " | ".join(_extract_text(item) for item in value if _extract_text(item))
     return str(value)
 
-def _truncate_text(text: str, length: int = 85) -> str:
-    cleaned = _clean_text(text).strip()
-    return cleaned if len(cleaned) <= length else cleaned[:length - 3] + "..."
+def _truncate_text(text: str, max_len: int = 150) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 3] + "..."

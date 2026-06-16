@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-# Imports des modules de la boîte à outils
+# Toolbox module imports
 from app.modules.aircrack_ng import run_aircrack_ng, run_aircrack_ng_interactive
 from app.modules.nuclei import run_nuclei, run_nuclei_interactive
 from app.modules.msfvenom import run_msfvenom, run_msfvenom_interactive
@@ -61,6 +61,7 @@ def run_pipeline_interactive():
         validate=lambda x: len(x) > 0
     ).ask()
     
+    # Selection pruned to guarantee automated pipeline speed and reliability
     tests = questionary.checkbox(
         "Select automated tests to run:",
         choices=[
@@ -77,6 +78,7 @@ def run_pipeline_interactive():
 
     pipeline_args = {}
 
+    # Sequential extraction of module parameters
     for test in tests:
         console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
         pipeline_args[test] = {"options": ""}
@@ -121,7 +123,7 @@ def run_pipeline_interactive():
                 default="--batch"
             ).ask()
         
-        console.print(f"[green]Options for {test.upper()} set[/green]")
+        console.print(f"[green]Options for {test.upper()} configured successfully[/green]")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
     default_filename = f"report_{timestamp}.pdf"
@@ -136,11 +138,11 @@ def run_pipeline_interactive():
         output_file = f"{output_file}.pdf"
     
     copy_to_host = questionary.confirm(
-        "Copy PDF to host mount?",
+        "Copy PDF report to host mount?",
         default=False
     ).ask()
     
-    console.print(f"\n[yellow]Running pipeline with tests: {', '.join(tests)}[/yellow]")
+    console.print(f"\n[yellow]Running automated pipeline with modules: {', '.join(tests)}[/yellow]")
     results = {}
     
     for test in tests:
@@ -163,6 +165,7 @@ def run_pipeline_interactive():
                 wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
                 raw_result = run_ffuf(target, wordlist, options)
             elif test == "sqlmap":
+                # Forced batch mode to ensure automation within the global pipeline execution flow
                 if "--batch" not in options:
                     options += " --batch"
                 raw_result = run_sqlmap(target, options, interactive=False)
@@ -234,7 +237,7 @@ def main():
     
     while True:
         console.print()
-        # Utilisation de libellés calibrés avec une tabulation fixe après les émojis
+        # Calibrated selection matrix strings ensuring proper visual tabular alignment with unicode emojis
         choice = questionary.select(
             "Select an operation or tool to run:",
             choices=[
@@ -248,13 +251,13 @@ def main():
                 "🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]",
                 "🔓  HYDRA        - Brute-Force [Standalone Only]",
                 "🔑  JOHN         - Password Cracking [Standalone Only]",
-                "🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]",
+                "🛜   AIRCRACK-NG  - Wireless Testing [Standalone Only]",
                 "💀  MSFVENOM     - Payload Generation [Standalone Only]",
                 "🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
                 "🔍  CLAMAV       - Antivirus Scan [Standalone Only]",
                 "🦈  TSHARK       - Packet Analysis [Standalone Only]",
                 "ℹ️   INFO         - Information Matrix",
-                "❌  EXIT         - Exit",
+                "❌  EXIT         - Exit Application",
             ],
             pointer="→"
         ).ask()
