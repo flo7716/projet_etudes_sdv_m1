@@ -61,7 +61,6 @@ def run_pipeline_interactive():
         validate=lambda x: len(x) > 0
     ).ask()
     
-    # Sélection épurée des "faux amis" pour garantir performance, automatisation et pertinence du PDF
     tests = questionary.checkbox(
         "Select automated tests to run:",
         choices=[
@@ -78,7 +77,6 @@ def run_pipeline_interactive():
 
     pipeline_args = {}
 
-    # Collecte séquentielle des arguments de la pipeline
     for test in tests:
         console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
         pipeline_args[test] = {"options": ""}
@@ -165,7 +163,6 @@ def run_pipeline_interactive():
                 wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
                 raw_result = run_ffuf(target, wordlist, options)
             elif test == "sqlmap":
-                # Forcé en non-interactif pour éviter de bloquer la pipeline globale
                 if "--batch" not in options:
                     options += " --batch"
                 raw_result = run_sqlmap(target, options, interactive=False)
@@ -237,26 +234,27 @@ def main():
     
     while True:
         console.print()
+        # Utilisation de libellés calibrés avec une tabulation fixe après les émojis
         choice = questionary.select(
             "Select an operation or tool to run:",
             choices=[
-                "📊 PIPELINE - Run Full Automated Pipeline",
-                "🔍 NMAP - Network Scanning [Pipeline & Standalone]",
-                "🔒 SSLYZE - SSL/TLS Analysis [Pipeline & Standalone]",
-                "🕷️ NIKTO - Web Scanning [Pipeline & Standalone]",
-                "📁 GOBUSTER - Directory Scanning [Pipeline & Standalone]",
-                "🧪 NUCLEI - Vulnerability Scanning [Pipeline & Standalone]",
-                "🕷️ FFUF - Web Fuzzing [Pipeline & Standalone]",
-                "🗄️ SQLMAP - SQL Injection [Pipeline & Standalone]",
-                "🔓 HYDRA - Brute-Force [Standalone Only]",
-                "🔑 JOHN - Password Cracking [Standalone Only]",
-                "🛜 AIRCRACK-NG - Wireless Testing [Standalone Only]",
-                "💀 MSFVENOM - Payload Generation [Standalone Only]",
-                "🔎 SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
-                "🔍 CLAMAV - Antivirus Scan [Standalone Only]",
-                "🦈 TSHARK - Packet Analysis [Standalone Only]",
-                "ℹ️ Information Matrix",
-                "❌ Exit",
+                "📊  PIPELINE     - Run Full Automated Pipeline",
+                "🔍  NMAP         - Network Scanning [Pipeline & Standalone]",
+                "🔒  SSLYZE       - SSL/TLS Analysis [Pipeline & Standalone]",
+                "🕷️   NIKTO        - Web Scanning [Pipeline & Standalone]",
+                "📁  GOBUSTER     - Directory Scanning [Pipeline & Standalone]",
+                "🧪  NUCLEI       - Vulnerability Scanning [Pipeline & Standalone]",
+                "🕷️   FFUF         - Web Fuzzing [Pipeline & Standalone]",
+                "🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]",
+                "🔓  HYDRA        - Brute-Force [Standalone Only]",
+                "🔑  JOHN         - Password Cracking [Standalone Only]",
+                "🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]",
+                "💀  MSFVENOM     - Payload Generation [Standalone Only]",
+                "🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
+                "🔍  CLAMAV       - Antivirus Scan [Standalone Only]",
+                "🦈  TSHARK       - Packet Analysis [Standalone Only]",
+                "ℹ️   INFO         - Information Matrix",
+                "❌  EXIT         - Exit",
             ],
             pointer="→"
         ).ask()
@@ -293,9 +291,9 @@ def main():
         elif "CLAMAV" in choice:
             from app.modules.clamscan import run_clamscan_interactive
             run_interactive_tool(run_clamscan_interactive, "Clamscan analysis")
-        elif "Information" in choice:
+        elif "INFO" in choice:
             display_tools_info()
-        elif "Exit" in choice:
+        elif "EXIT" in choice:
             console.print("\n[green]Goodbye![/green]\n")
             break
         
