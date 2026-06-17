@@ -1,4 +1,5 @@
 # app/modules/report_tools/templates.py
+
 LATEX_TEMPLATE = r"""\documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -7,25 +8,31 @@ LATEX_TEMPLATE = r"""\documentclass{article}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{fancyvrb}
+\usepackage{listings} % Centralisé ici !
+
+% On charge xcolor avec l'option table en premier
 \usepackage[table]{xcolor}
 
-% --- AJOUT DE LISTINGS POUR LES OUTPUTS BRUTS ---
-\usepackage{listings}
+% --- CONFIGURATION DE LISTINGS (SÉCURISATION DES LIGNES TRÈS LONGUES) ---
 \lstset{
     basicstyle=\small\ttfamily,
-    breaklines=true,            % Active la coupure automatique
-    breakatwhitespace=false,    % Coupe même au milieu des mots si nécessaire
-    frame=single,               % Ajoute un cadre fin esthétique autour du bloc
-    backgroundcolor=\color{gray!5}, % Un léger fond gris clair pour le code
+    breaklines=true,         % Active le retour à la ligne automatique
+    breakatwhitespace=false, % Force la coupure même s'il n'y a pas d'espace
     columns=fullflexible,
     keepspaces=true
 }
 
-\definecolor{gray!20}{HTML}{E0E0E0}
+% --- DÉFINITIONS DES COULEURS ---
+\definecolor{vuln_critical}{HTML}{FF4D4D}
+\definecolor{vuln_high}{HTML}{FF944D}
+\definecolor{vuln_medium}{HTML}{FFDB4D}
+\definecolor{vuln_low}{HTML}{4DFF4D}
+
 \definecolor{vulncritical}{HTML}{FF4D4D}
 \definecolor{vulnhigh}{HTML}{FF944D}
 \definecolor{vulnmedium}{HTML}{FFDB4D}
 \definecolor{vulnlow}{HTML}{4DFF4D}
+\definecolor{gray!20}{HTML}{E6E6E6}
 
 \geometry{margin=1in}
 \begin{document}

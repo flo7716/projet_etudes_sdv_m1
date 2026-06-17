@@ -17,7 +17,6 @@ def parse_nikto(output):
             item = line[1:].strip()
             results.append(item)
             
-            # --- ÉVALUATIONS DE MOTS CLÉS CRITIQUES ---
             item_lower = item.lower()
             if any(x in item_lower for x in ["rce", "exec", "vulnerable", "overflow", "cve-"]):
                 severity = "critical"
@@ -26,15 +25,15 @@ def parse_nikto(output):
             elif "finding" in item_lower or "leak" in item_lower:
                 if severity not in ["critical", "high"]: severity = "medium"
 
-    # Si aucune alerte spécifique mais beaucoup de découvertes
     if severity == "low" and len(results) > 3:
         severity = "medium"
 
     return {
         "vulnerabilities_count": len(results),
         "vulnerabilities": results,
-        "findings": results, # Assure la compatibilité avec le pipeline d'agrégation
-        "severity": severity # <--- Injecté ici
+        "findings": results[:25],
+        "severity": severity,
+        "raw_output": output
     }
 
 def run_nikto(target, options=""):

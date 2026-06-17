@@ -1,3 +1,6 @@
+# app/modules/nuclei.py
+import os
+import re
 import shlex
 import subprocess
 
@@ -5,65 +8,100 @@ from app.modules.interactive import prompt_text
 
 
 def parse_nuclei(output_file: str):
-    import os
     if not os.path.exists(output_file):
-        return {"tool": "nuclei", "findings": [], "severity": "low", "raw_output": ""}
+        return {
+            "tool": "nuclei",
+            "lines_count": 0,
+            "findings": [],
+            "raw_output": "",
+            "severity": "low",
+        }
 
-    with open(output_file, "r") as f:
+    with open(output_file, "r", encoding="utf-8", errors="replace") as f:
         output = f.read()
 
     lines = [line.strip() for line in output.splitlines() if line.strip()]
     findings = []
     
-    # Échelle d'évaluation pour garder uniquement le maximum trouvé
     severity_order = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
-    max_severity = "low"
+    max_severity = "info"
     
-    for line in lines:
-        findings.append(line)
-        line_lower = line.lower()
-        
-        # Détection dynamique de l'étiquette [low], [medium], [high], [critical] dans le message
-        for level in ["info", "low", "medium", "high", "critical"]:
-            if f"[{level}]" in line_lower:
-                if severity_order[level] > severity_order[max_severity]:
-                    max_severity = level
+    # REGEX : Capture le contenu du 3ème crochet [template] [protocol] [SEVERITY]
+    nuclei_pattern = re.compile(r"^\[[^\]]+\]\s+\[[^\]]+\]\s+\[([^\]]+)\]")
 
-    # On mappe "info" vers "low" pour la cohérence des graphiques et tableaux
+    for line in lines:
+        # Ignorer les lignes de logs/bannières de Nuclei qui commencent par [INF] ou [WRN]
+        if line.startswith(("[INF]", "[WRN]", "[ERR]")):
+            continue
+            
+        match = nuclei_pattern.match(line)
+        line_severity = "info"
+        
+        if match:
+            line_severity = match.group(1).lower().strip()
+            if line_severity in severity_order:
+                if severity_order[line_severity] > severity_order[max_severity]:
+                    max_severity = line_severity
+        else:
+            # Fallback
+            line_lower = line.lower()
+            for level in ["info", "low", "medium", "high", "critical"]:
+                if f"[{level}]" in line_lower:
+                    line_severity = level
+                    if severity_order[level] > severity_order[max_severity]:
+                        max_severity = level
+
+        # Astuce suprême : On laisse une chaîne de caractères brute pour que ton renderer 
+        # ne bugge pas, mais on force l'affichage de sa propre sévérité textuelle bien visible.
+        sev_label = line_severity.upper() if line_severity != "info" else "LOW"
+        findings.append(f"{line} -> Severity: {sev_label}")
+
     if max_severity == "info":
         max_severity = "low"
 
     return {
         "tool": "nuclei",
-        "lines_count": len(lines),
-        "findings": findings[:25],
+        "lines_count": len(findings),
+        "findings": findings[:25],  # Une liste de chaînes de caractères pures, parfaitement propre pour LaTeX
         "raw_output": output[:4000],
         "severity": max_severity,
     }
 
 
 def run_nuclei(target: str, options: str = ""):
-    command = ["nuclei", "-target", target, "-o", "nuclei_$(date +%Y%m%d_%H%M%S).txt"]
+    output_filename = "nuclei_output_temp.txt"
+    command = ["nuclei", "-target", target, "-o", output_filename]
 
     if options:
         command.extend(shlex.split(options))
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
     output = "\n".join(filter(None, [result.stdout, result.stderr]))
 
-    if result.returncode != 0:
+    if result.returncode != 0 and not os.path.exists(output_filename):
         return {
             "tool": "nuclei",
             "command": " ".join(command),
             "error": output or "nuclei scan failed.",
+            "findings": [],
+            "severity": "low",
+            "raw_output": output
         }
 
-    return parse_nuclei("nuclei_$(date +%Y%m%d_%H%M%S).txt")
+    report_data = parse_nuclei(output_filename)
+    
+    try:
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+    except Exception:
+        pass
+        
+    return report_data
 
 
 def run_nuclei_interactive():
     target = prompt_text(
-        "Enter target URL or host:",
+        "Enter target host/URL (e.g. http://172.18.0.2):",
         validate=lambda x: len(x) > 0,
     )
     options = prompt_text(

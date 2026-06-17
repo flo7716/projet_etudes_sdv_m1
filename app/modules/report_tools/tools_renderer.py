@@ -65,22 +65,47 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
     rows = []
     for tool, data in normalized_results.items():
         findings = data.get("findings", [])
-        # Nettoyage de la sévérité pour éviter les surprises
-        severity = str(data.get("severity", "low")).strip().upper()
+        global_severity = str(data.get("severity", "low")).strip().upper()
+        tool_upper = str(tool).upper()
         
         if not findings:
             rows.append([
-                _escape_latex(tool.upper()),
+                _escape_latex(tool_upper),
                 f"Module executed successfully. No severe vulnerabilities discovered.",
-                severity
+                global_severity
             ])
         else:
             for finding in findings:
-                rows.append([
-                    _escape_latex(tool.upper()),
-                    _escape_latex(finding), 
-                    severity
-                ])
+                finding_str = str(finding)
+                
+                # TRAITEMENT SPÉCIFIQUE ET PARSING INDIVIDUEL DE NUCLEI
+                if tool_upper == "NUCLEI":
+                    # On détermine dynamiquement la sévérité de LA ligne
+                    if "[critical]" in finding_str.lower() or "severity: critical" in finding_str.lower():
+                        row_severity = "CRITICAL"
+                    elif "[high]" in finding_str.lower() or "severity: high" in finding_str.lower():
+                        row_severity = "HIGH"
+                    elif "[medium]" in finding_str.lower() or "severity: medium" in finding_str.lower():
+                        row_severity = "MEDIUM"
+                    else:
+                        row_severity = "LOW"
+                        
+                    # Nettoyage de la description si le suffixe "-> Severity:" est présent
+                    clean_finding = finding_str.split(" -> Severity:")[0]
+                    
+                    # On injecte la structure exacte attendue (Liste de 3 éléments)
+                    rows.append([
+                        _escape_latex("NUCLEI"), # Toujours NUCLEI (pas de NUCLEI_1)
+                        _escape_latex(clean_finding), 
+                        row_severity # Vraie sévérité de la vulnérabilité !
+                    ])
+                else:
+                    # Comportement normal pour tous les autres modules (Nmap, Sqlmap...)
+                    rows.append([
+                        _escape_latex(tool_upper),
+                        _escape_latex(finding_str), 
+                        global_severity
+                    ])
     return rows
 
 def _render_criticality_matrix(rows: List[List[str]]) -> str:

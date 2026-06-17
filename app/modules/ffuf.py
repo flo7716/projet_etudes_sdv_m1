@@ -7,12 +7,10 @@ from app.modules.interactive import prompt_text
 def parse_ffuf(output: str):
     findings = []
 
-    # ffuf output line example (non-JSON mode):
-    # /admin                  [Status: 200, Size: 4321, Words: 120, Lines: 89, Duration: 45ms]
     pattern = re.compile(
-        r"^(?P<word>\S+)\s+\[Status:\s*(?P<status>\d+),\s*Size:\s*(?P<size>\d+),"
-        r"\s*Words:\s*(?P<words>\d+),\s*Lines:\s*(?P<lines>\d+)"
-        r"(?:,\s*Duration:\s*(?P<duration>[\d]+ms))?\]",
+        r"^(?P<word>\S+)\s+\\[Status:\\s*(?P<status>\d+),\\s*Size:\\s*(?P<size>\d+),"
+        r"\\s*Words:\\s*(?P<words>\d+),\\s*Lines:\\s*(?P<lines>\d+)"
+        r"(?:,\\s*Duration:\\s*(?P<duration>[\d]+ms))?\\]",
         re.MULTILINE,
     )
 
@@ -24,30 +22,24 @@ def parse_ffuf(output: str):
         entry = f"{word} - HTTP {status} ({size} bytes" + (f", {duration}" if duration else "") + ")"
         findings.append(entry)
 
-    # fallback: keep lines that look like hits from older ffuf output format
     if not findings:
         for line in output.splitlines():
             line = line.strip()
             if not line:
                 continue
-            # skip headers / noise
-            if any(line.startswith(skip) for skip in [
-                "ffuf", "Time", "Size", "Lines", "Words", "Status",
-                "Content-Type", "Location", "::", "/"
-            ]):
+            if any(line.startswith(skip) for skip in ["ffuf", "Time", "Size", "Lines", "Words", "Status", "Content-Type", "Location", "::", "/"]):
                 continue
             if re.search(r"\b(200|204|301|302|307|401|403)\b", line):
                 findings.append(line)
-    
-    # --- AJOUT CALCUL SÉVÉRITÉ ---
+
+    # --- SEVERITY CALCULATION ---
     severity = "low"
     for item in findings:
         item_lower = item.lower()
-        # Recherche d'indicateurs de fichiers système ou environnementaux
-        if any(secret in item_lower for secret in [".env", ".git", "config", "backup", "secret", "db.php"]):
+        if any(keyword in item_lower for keyword in [".env", ".git", "config", "backup", "secret", "db.php"]):
             severity = "critical"
             break
-        elif any(admin in item_lower for admin in ["admin", "login", "auth", "panel"]):
+        elif any(keyword in item_lower for keyword in ["admin", "login", "auth", "panel"]):
             if severity != "critical":
                 severity = "high"
 
