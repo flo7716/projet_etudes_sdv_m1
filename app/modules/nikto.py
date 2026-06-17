@@ -3,41 +3,39 @@ import xml.etree.ElementTree as ET
 from app.modules.interactive import prompt_text
 
 def parse_nikto(output):
-
     results = []
+    severity = "low"
 
     for line in output.splitlines():
         line = line.strip()
-        if line == "":
-            continue
-
-        if line.startswith("-"):
+        if line == "" or line.startswith("-") or line.startswith("|"):
             continue
 
         if line.startswith("+"):
-            if any(skip in line for skip in [
-                "Target IP:",
-                "Target Hostname:",
-                "Target Port:",
-                "Platform:",
-                "Start Time:",
-                "Server:",
-                "Failed to check for updates"
-            ]):
+            if any(skip in line for skip in ["Target IP:", "Target Hostname:", "Target Port:", "Platform:", "Start Time:", "Server:", "Failed to check for updates"]):
                 continue
-            results.append(line[1:].strip())
-            continue
+            item = line[1:].strip()
+            results.append(item)
+            
+            # --- ÉVALUATIONS DE MOTS CLÉS CRITIQUES ---
+            item_lower = item.lower()
+            if any(x in item_lower for x in ["rce", "exec", "vulnerable", "overflow", "cve-"]):
+                severity = "critical"
+            elif "injection" in item_lower or "unauthenticated" in item_lower:
+                if severity != "critical": severity = "high"
+            elif "finding" in item_lower or "leak" in item_lower:
+                if severity not in ["critical", "high"]: severity = "medium"
 
-        if line.startswith("|"):
-            continue
-
-        results.append(line)
+    # Si aucune alerte spécifique mais beaucoup de découvertes
+    if severity == "low" and len(results) > 3:
+        severity = "medium"
 
     return {
         "vulnerabilities_count": len(results),
-        "vulnerabilities": results
+        "vulnerabilities": results,
+        "findings": results, # Assure la compatibilité avec le pipeline d'agrégation
+        "severity": severity # <--- Injecté ici
     }
-
 
 def run_nikto(target, options=""):
 

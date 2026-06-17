@@ -8,7 +8,19 @@ _UNICODE_REPLACEMENTS = {
     "\u00bf": "", "\u00ab": '"', "\u00bb": '"',
 }
 
-def _escape_latex(text: str) -> str:
+def _escape_latex(text: Any) -> str:
+    """Safely escape LaTeX special characters, forcing conversion to string if dict/list is passed."""
+    if text is None:
+        return ""
+    
+    # Si c'est un dictionnaire ou une liste, on le convertit en chaîne propre au lieu de crasher
+    if isinstance(text, dict):
+        text = text.get("summary", text.get("error", str(text)))
+    elif isinstance(text, list):
+        text = ", ".join(str(item) for item in text)
+    else:
+        text = str(text)
+
     replacements = {
         "\\": "\\textbackslash{}", "%": "\\%", "$": "\\$", "#": "\\#",
         "&": "\\&", "_": "\\_", "{": "\\{", "}": "\\}",
@@ -19,6 +31,8 @@ def _escape_latex(text: str) -> str:
     return text
 
 def _clean_text(text: str) -> str:
+    if not isinstance(text, str):
+        text = str(text)
     ansi_escape = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
     text = ansi_escape.sub("", text)
     for src, dst in _UNICODE_REPLACEMENTS.items():
@@ -40,6 +54,8 @@ def _extract_text(value: Any) -> str:
     return str(value)
 
 def _truncate_text(text: str, max_len: int = 150) -> str:
+    if not isinstance(text, str):
+        text = str(text)
     if len(text) <= max_len:
         return text
     return text[:max_len - 3] + "..."

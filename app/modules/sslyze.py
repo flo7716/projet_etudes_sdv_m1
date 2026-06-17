@@ -65,10 +65,22 @@ def parse_sslyze(output):
     if not findings:
         findings.append("No major TLS/SSL configuration issues were identified by sslyze.")
 
+    # ... (Conserver votre logique de parsing existante tout en haut de la fonction)
+    if not findings:
+        findings.append("No major TLS/SSL configuration issues were identified by sslyze.")
+
+    # --- AJOUT CALCUL SÉVÉRITÉ ---
+    severity = "low"
+    if deprecated_supported or weak_ciphers:
+        severity = "medium"
+    if untrusted_stores or cert_lifespan_issue:
+        severity = "high"
+        
     return {
         "ssl_issues_count": len(findings),
         "findings": findings,
         "raw_output": output,
+        "severity": severity # <--- Injecté ici
     }
 
 

@@ -38,10 +38,24 @@ def parse_ffuf(output: str):
                 continue
             if re.search(r"\b(200|204|301|302|307|401|403)\b", line):
                 findings.append(line)
+    
+    # --- AJOUT CALCUL SÉVÉRITÉ ---
+    severity = "low"
+    for item in findings:
+        item_lower = item.lower()
+        # Recherche d'indicateurs de fichiers système ou environnementaux
+        if any(secret in item_lower for secret in [".env", ".git", "config", "backup", "secret", "db.php"]):
+            severity = "critical"
+            break
+        elif any(admin in item_lower for admin in ["admin", "login", "auth", "panel"]):
+            if severity != "critical":
+                severity = "high"
 
     return {
         "findings_count": len(findings),
         "findings": findings,
+        "severity": severity,
+        "raw_output": output
     }
 
 

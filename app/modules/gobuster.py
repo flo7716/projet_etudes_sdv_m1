@@ -35,9 +35,23 @@ def parse_gobuster(output):
         if any(status in line for status in ["200", "301", "302", "403", "500"]):
             findings.append(line)
 
+    severity = "low"
+    for item in findings:
+        item_lower = item.lower()
+        # Ciblage critique : fichiers de configuration ou secrets exposés directement
+        if any(secret in item_lower for secret in [".env", ".git", "config", "backup", "secret", "passwd", "shadow"]):
+            severity = "critical"
+            break  # Niveau maximal atteint
+        # Ciblage modéré : interfaces administratives ou points d'entrée sensibles
+        elif any(admin in item_lower for admin in ["admin", "login", "wp-admin", "cpanel", "dashboard"]):
+            if severity != "critical":
+                severity = "high"
+
     return {
         "found_paths_count": len(findings),
         "findings": findings,
+        "severity": severity,
+        "raw_output": output
     }
 
 

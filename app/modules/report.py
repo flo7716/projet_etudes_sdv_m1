@@ -48,6 +48,8 @@ def build_global_summary(results: Dict[str, Any]) -> Dict[str, Any]:
         recs = data.get("recommendations") or []
         if isinstance(recs, str):
             recs = [recs]
+        elif isinstance(recs, dict):
+            recs = [str(recs)]
         recommendations.extend(recs)
 
     score = min(100, risk_score)
@@ -65,9 +67,12 @@ def _load_report_template() -> str:
     template_path = os.path.join(os.path.dirname(__file__), "model", "report.tex")
     try:
         with open(template_path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except FileNotFoundError:
-        return LATEX_TEMPLATE
+            content = f.read()
+            if content and isinstance(content, str):
+                return content
+            return str(LATEX_TEMPLATE)
+    except Exception:
+        return str(LATEX_TEMPLATE)
 
 def _render_chart_section(chart_paths: dict[str, str]) -> str:
     if not chart_paths:
@@ -99,7 +104,7 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
         f"  \\item Evaluated system risk score: {summary['risk_score']} / 100",
         "\\end{itemize}",
         _render_top_vulnerabilities(normalized),
-        "\n\\subsection*{Remediation & Patching Timeframe Windows}\n\\begin{itemize}\n  \\item Critical Findings: Remediation required within 48 Hours.\n  \\item High Findings: Remediation required within 7 Days.\n  \\item Medium / Low Findings: Remediation scheduled within 30-90 Days.\n\\end{itemize}",
+        "\n\\subsection*{Remediation and Patching Timeframe Windows}\n\\begin{itemize}\n  \\item Critical Findings: Remediation required within 48 Hours.\n  \\item High Findings: Remediation required within 7 Days.\n  \\item Medium / Low Findings: Remediation scheduled within 30-90 Days.\n\\end{itemize}",
         _render_criticality_matrix(_criticality_matrix_rows(normalized)),
         "\\subsection*{Metrics Distribution Overview}",
         "\\begin{itemize}",
@@ -113,11 +118,13 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
     for recommendation in summary["recommendations"]:
         parts.append(f"  \\item {_escape_latex(str(recommendation))}")
     parts.append("\\end{itemize}")
+    
+    # Lignes corrigées ici : Séparation stricte en deux instructions .append() distinctes
     parts.append("\\subsection*{Operational Module Registry}")
     parts.append("\\begin{itemize}")
+    
     for tool in tests:
         data = normalized[tool]
-        status = data.get("summary") or "Completed"
         severity = data.get("severity", "medium")
         parts.append(
             f"  \\item \\textbf{{{_escape_latex(tool.upper())}}}: Run Status -> Completed. Base calculated risk profile: \\textbf{{{severity.upper()}}}"
@@ -129,9 +136,16 @@ def _render_results_as_latex(results: Dict[str, Any]) -> str:
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     charts = {}
     try:
+        # 1. On récupère le dictionnaire du premier graphique (severity_chart)
+        severity_chart_res = generate_charts(list(normalized.values()))
+        
+        # 2. On récupère le dictionnaire du second graphique (tool_chart)
+        tool_chart_res = generate_tool_chart(list(normalized.values()))
+        
+        # 3. On extrait proprement la chaîne de caractères (le chemin absolu vers le fichier)
         charts = {
-            **generate_charts(list(normalized.values())),
-            "tool_chart": generate_tool_chart(list(normalized.values())),
+            "severity_chart": severity_chart_res.get("severity_chart"),
+            "tool_chart": tool_chart_res.get("tool_chart") if isinstance(tool_chart_res, dict) else tool_chart_res
         }
     except Exception:
         charts = {}
@@ -157,35 +171,44 @@ def _is_mount(path: str) -> bool:
     except Exception:
         return False
 
-def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, copy_to_host: bool = False, host_dest: str | None = None) -> Dict[str, Any]:
-    template = _load_report_template()
+def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, copy_to_host: bool = False, host_dest: str | None = None) -> Dict[str, Any]:
+    if isinstance(title, dict):
+        clean_title = str(title.get("title", title.get("text", "Pentest Automation Report")))
+    else:
+        clean_title = str(title) if title else "Pentest Automation Report"
+
+    loaded_template = _load_report_template()
+    if not isinstance(loaded_template, str):
+        template = str(LATEX_TEMPLATE)
+    else:
+        template = loaded_template
     
     if "\\usepackage{float}" not in template:
         template = template.replace("\\begin{document}", "\\usepackage{float}\n\\begin{document}")
 
     tex_body = _render_results_as_latex(results)
+    
     if TEMPLATE_PLACEHOLDER in template:
-        tex = template.replace(TEMPLATE_PLACEHOLDER, tex_body)
+        template = template.replace(TEMPLATE_PLACEHOLDER, tex_body)
     elif "\\end{document}" in template:
-        tex = template.replace("\\end{document}", tex_body + "\n\\end{document}")
+        template = template.replace("\\end{document}", tex_body + "\n\\end{document}")
     else:
-        tex = LATEX_TEMPLATE % tex_body
+        template = (str(LATEX_TEMPLATE) % tex_body) if "%s" in str(LATEX_TEMPLATE) else f"{LATEX_TEMPLATE}\n{tex_body}"
 
-    if title and TITLE_PLACEHOLDER in tex:
-        tex = tex.replace(TITLE_PLACEHOLDER, _escape_latex(title))
+    if TITLE_PLACEHOLDER in template:
+        template = template.replace(TITLE_PLACEHOLDER, _escape_latex(clean_title))
     else:
         try:
-            if title:
-                if re.search(r"\\title\s*\{.*?\}", tex, flags=re.S):
-                    tex = re.sub(r"\\title\s*\{.*?\}", f"\\title{{{_escape_latex(title)}}}", tex, flags=re.S)
-                else:
-                    tex = tex.replace(
-                        "\\begin{document}",
-                        f"\\title{{{_escape_latex(title)}}}\n\\begin{{document}}",
-                    )
-            if "\\maketitle" in tex and "\\title" in tex and tex.find("\\maketitle") < tex.find("\\title"):
-                tex = tex.replace("\\maketitle", "")
-                tex = tex.replace("\\begin{document}", "\\begin{document}\n\\maketitle", 1)
+            if re.search(r"\\title\s*\{.*?\}", template, flags=re.S):
+                template = re.sub(r"\\title\s*\{.*?\}", f"\\title{{{_escape_latex(clean_title)}}}", template, flags=re.S)
+            else:
+                template = template.replace(
+                    "\\begin{document}",
+                    f"\\title{{{_escape_latex(clean_title)}}}\n\\begin{{document}}",
+                )
+            if "\\maketitle" in template and "\\title" in template and template.find("\\maketitle") < template.find("\\title"):
+                template = template.replace("\\maketitle", "")
+                template = template.replace("\\begin{document}", "\\begin{document}\n\\maketitle", 1)
         except Exception:
             pass
 
@@ -196,7 +219,7 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
     with tempfile.TemporaryDirectory() as td:
         tex_path = os.path.join(td, "report.tex")
         with open(tex_path, "w", encoding="utf-8", errors="replace") as f:
-            f.write(tex)
+            f.write(template)
         
         logo_src = os.path.join(os.path.dirname(__file__), "model", "swissknife_logo.jpg")
         if os.path.exists(logo_src):
@@ -207,6 +230,7 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
             generated_pdf = os.path.join(td, "report.pdf")
             last_stdout, last_stderr = "", ""
             
+            # Exécution des passes de compilation
             for i in range(2):
                 proc = subprocess.run(
                     ["pdflatex", "-interaction=nonstopmode", "report.tex"],
@@ -219,11 +243,12 @@ def generate_pdf_report(results: Dict[str, Any], title: str, output_path: str, c
                 last_stdout = proc.stdout
                 last_stderr = proc.stderr
 
-                if proc.returncode != 0:
-                    return {
-                        "error": "pdflatex compilation failure",
-                        "log": proc.stdout + proc.stderr,
-                    }
+            # --- CORRECTIF : Tolérance aux codes de retour si le PDF est bien généré ---
+            if not os.path.exists(generated_pdf) or os.path.getsize(generated_pdf) == 0:
+                return {
+                    "error": "pdflatex compilation failure",
+                    "log": last_stdout + last_stderr,
+                }
             
             try:
                 os.replace(generated_pdf, output_path)

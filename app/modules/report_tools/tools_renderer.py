@@ -20,111 +20,153 @@ def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Di
 
     severity = "low"
     if isinstance(data, dict) and data.get("severity"):
-        severity = data.get("severity").lower()
+        severity = str(data.get("severity")).lower()
     return normalized
 
 def _render_top_vulnerabilities(normalized_results: Dict[str, Any]) -> str:
     sections = ["\\subsection*{Critical Vulnerability Highlights}"]
     found = False
     for tool, data in normalized_results.items():
-        if data.get("severity") in ["high", "critical"]:
+        if str(data.get("severity", "low")).lower() in ["high", "critical"]:
             found = True
-            sections.append(f"\\textbf{{[{data['severity'].upper()}] Module {tool.upper()}}}: {data.get('summary')}\\\\")
+            findings = data.get("findings", [])
+            sections.append(f"\\textbf{{Module {tool.upper()}}} detected severe exposures:")
+            sections.append("\\begin{itemize}")
+            for finding in findings:
+                # Échappement de sécurité contre les esperluettes et caractères LaTeX
+                sections.append(f"  \\item {_escape_latex(finding)}")
+            sections.append("\\end{itemize}")
     if not found:
-        sections.append("No critical or high severity vulnerabilities were detected during this pipeline execution.")
+        sections.append("No isolated critical or high-severity vulnerabilities required immediate out-of-band patching windows.")
     return "\n".join(sections)
 
-def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[Dict[str, str]]:
+def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[str]]:
     rows = []
     for tool, data in normalized_results.items():
-        findings = data.get("findings") or []
-        severity = data.get("severity", "low")
+        findings = data.get("findings", [])
+        severity = str(data.get("severity", "low")).upper()
+        
         if not findings:
-            rows.append({"tool": tool.upper(), "finding": "No critical anomalies discovered.", "severity": severity})
+            rows.append([
+                _escape_latex(tool.upper()),
+                f"Module executed successfully. No severe vulnerabilities discovered.",
+                severity
+            ])
         else:
             for finding in findings:
-                rows.append({"tool": tool.upper(), "finding": str(finding), "severity": severity})
+                rows.append([
+                    _escape_latex(tool.upper()),
+                    _escape_latex(finding), # CORRECTION ICI : Échappement obligatoire du finding pour éviter le crash du '&'
+                    severity
+                ])
     return rows
 
-def _render_criticality_matrix(matrix_rows: List[Dict[str, str]]) -> str:
-    if not matrix_rows:
+def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[str]]:
+    rows = []
+    for tool, data in normalized_results.items():
+        findings = data.get("findings", [])
+        # Nettoyage de la sévérité pour éviter les surprises
+        severity = str(data.get("severity", "low")).strip().upper()
+        
+        if not findings:
+            rows.append([
+                _escape_latex(tool.upper()),
+                f"Module executed successfully. No severe vulnerabilities discovered.",
+                severity
+            ])
+        else:
+            for finding in findings:
+                rows.append([
+                    _escape_latex(tool.upper()),
+                    _escape_latex(finding), 
+                    severity
+                ])
+    return rows
+
+def _render_criticality_matrix(rows: List[List[str]]) -> str:
+    if not rows:
         return ""
-    parts = [
-        "\\subsection*{Identified Vulnerabilities Matrix}",
-        "\\begin{table}[H]",
-        "\\centering",
-        "\\begin{tabular}{|l|p{9cm}|c|}",
+    
+    tex = [
+        "\\subsection*{Consolidated Operational Criticality Matrix}",
+        "\\noindent\\begin{tabular}{|l|p{9.5cm}|l|}",
         "\\hline",
-        "\\textbf{Module} & \\textbf{Detected Threat / Vulnerability Description} & \\textbf{Severity} \\\\",
+        "\\cellcolor{gray!20}\\textbf{Module Source} & \\cellcolor{gray!20}\\textbf{Target Vulnerability / Vector Description} & \\cellcolor{gray!20}\\textbf{Severity} \\\\",
         "\\hline"
     ]
     
-    color_map = {
-        "critical": "vuln_critical",
-        "high": "vuln_high",
-        "medium": "vuln_medium",
-        "weak": "vuln_medium",
-        "low": "vuln_low"
-    }
-
-    for row in matrix_rows:
-        tool = _escape_latex(row.get("tool", "UNKNOWN"))
-        finding = _escape_latex(row.get("finding", ""))
-        severity = row.get("severity", "low").lower()
+    for row in rows:
+        mod, desc, sev = row[0], row[1], row[2]
+        sev_lower = sev.lower()
         
-        color = color_map.get(severity, "white")
-        parts.append(f"{tool} & {finding} & \\cellcolor{{{color}}}\\textbf{{{severity.upper()}}} \\\\")
-        parts.append("\\hline")
+        cell_color = "vulnlow"
+        if sev_lower == "critical": cell_color = "vulncritical"
+        elif sev_lower == "high": cell_color = "vulnhigh"
+        elif sev_lower in ["medium", "weak"]: cell_color = "vulnmedium"
         
-    parts.append("\\end{tabular}")
-    parts.append("\\caption{Comprehensive security matrix across active modules}")
-    parts.append("\\end{table}")
-    return "\n".join(parts)
-
-def render_nmap_data(normalized: Dict[str, Any]) -> str:
-    lines = ["\\begin{itemize}"]
-    lines.append(f"  \\item Status: {_escape_latex(str(normalized.get('raw_output', {}).get('status', 'unknown')))}")
-    lines.append(f"  \\item Total open ports: {normalized.get('raw_output', {}).get('open_ports_count', 0)}")
-    lines.append("\\end{itemize}")
-    return "\n".join(lines)
+        # --- CORRECTIF SÉCURITÉ DE RETOUR À LA LIGNE ---
+        # Si la description est une ligne brute d'outil (comme Nuclei) très longue,
+        # on s'assure qu'elle n'excède pas une taille raisonnable pour l'affichage de la cellule
+        if len(desc) > 120:
+            desc = desc[:117] + "..."
+            
+        # Échappement obligatoire des caractères spéciaux LaTeX pour empêcher les crashs de compilation
+        clean_desc = _escape_latex(desc)
+        
+        tex.append(f"{mod} & {clean_desc} & \\cellcolor{{{cell_color}}}\\textbf{{{sev}}} \\\\")
+        tex.append("\\hline")
+        
+    tex.append("\\end{tabular}")
+    return "\n".join(tex)
 
 def _render_tool_page(tool: str, normalized: Dict[str, Any]) -> str:
-    severity = normalized.get("severity", "low").lower()
+    title = f"\\section{{Module Evaluation Report: {tool.upper()}}}"
+    objective = normalized.get("objective", "")
+    summary = normalized.get("summary", "")
+    findings = normalized.get("findings", [])
     recommendations = normalized.get("recommendations", [])
-    
-    title = f"\\section{{Module Audit Report: {tool.upper()}}}"
+    severity = str(normalized.get("severity", "low")).lower()
+
     sections = [
-        "\\subsection*{Operational Module Objective}",
-        _escape_latex(normalized.get("objective", "")),
-        "\\subsection*{Technical Summary}",
-        _escape_latex(normalized.get("summary", "")),
-        "\\subsection*{Expected Threat Impact Analysis}",
+        "\\subsection*{Module Objective}",
+        _escape_latex(objective),
+        "\\subsection*{Operational Executive Summary}",
+        _escape_latex(summary),
+        "\\subsection*{Detailed Technical Findings}",
         "\\begin{itemize}"
     ]
-    
+
+    if findings:
+        for finding in findings:
+            sections.append(f"  \\item {_escape_latex(finding)}")
+    else:
+        sections.append("  \\item No structural anomalies or misconfigurations detected by this tool module.")
+    sections.append("\\end{itemize}")
+
+    sections.append("\\subsection*{Target Assessment Analysis}")
+    sections.append("\\begin{itemize}")
     if severity == "critical":
-        sections.append("  \\item Critical Threat Level: Immediate risk of unauthenticated Remote Code Execution (RCE) or total database breach.")
+        sections.append("  \\item Critical Threat Vector: Immediate threat exploitation capability verified.")
     elif severity == "high":
-        sections.append("  \\item High Threat Level: Significant business exposure, data exfiltration potential or corporate identity theft risk.")
+        sections.append("  \\item High Threat Level: Significant risk of data exposure or application compromise.")
     elif severity == "medium":
-        sections.append("  \\item Medium Threat Level: Software version disclosure or configuration leak requiring prompt patch scheduling.")
+        sections.append("  \\item Medium Threat Level: Exposure of internal configurations or sensitive properties.")
     else:
         sections.append("  \\item Low Threat Level: Minimum direct exploit risk. Hardening advisory.")
     sections.append("\\end{itemize}")
 
-    sections.extend(["\\subsection*{Remediation & Hardening Action Plan}", "\\begin{itemize}"])
-    for rec in recommendations[:5]:
-        sections.append(f"  \\item {_escape_latex(str(rec))}")
+    sections.extend(["\\subsection*{Remediation \\& Hardening Action Plan}", "\\begin{itemize}"])
+    if isinstance(recommendations, list):
+        for rec in recommendations[:5]:
+            sections.append(f"  \\item {_escape_latex(rec)}")
+    else:
+        sections.append(f"  \\item {_escape_latex(recommendations)}")
     sections.append("\\end{itemize}")
     
     sections.extend([
         "\\subsection*{Calculated Asset Risk Level}",
-        f"Assigned Level: \\textbf{{{severity.upper()}}}\\\\"
+        f"Assigned Level: \\\\textbf{{{_escape_latex(severity.upper())}}}\\\\\\\\"
     ])
-
-    if tool.lower() == "nmap":
-        sections.append("\\subsection*{Network Specific Metrics}")
-        sections.append(render_nmap_data(normalized))
 
     return title + "\n" + "\n".join(sections)
 
@@ -135,10 +177,15 @@ def _render_annex_page(normalized_results: Dict[str, Any]) -> str:
         if not raw_output:
             continue
         parts.append(f"\\subsection*{{Module: {tool.upper()}}}")
-        parts.append("\\begin{verbatim}")
+        
+        # --- CORRECTIF : Utilisation de Verbatim avec coupure automatique des lignes ---
+        parts.append("\\begin{Verbatim}[breaklines=true, breakanywhere=true, fontsize=\\small]")
+        
         if isinstance(raw_output, (dict, list)):
-            parts.append(json.dumps(raw_output, indent=2)[:2000])
+            parts.append(json.dumps(raw_output, indent=2))
         else:
-            parts.append(str(raw_output)[:2000])
-        parts.append("\\end{verbatim}")
+            parts.append(str(raw_output))
+            
+        parts.append("\\end{Verbatim}")
+        
     return "\n".join(parts)
