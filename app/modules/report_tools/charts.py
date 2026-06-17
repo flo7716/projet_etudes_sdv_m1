@@ -14,17 +14,44 @@ VULN_COLORS = {
 
 def generate_charts(results_list):
     severity_counter = Counter()
+    
+    # Initialisation forcée de toutes les catégories pour conserver un ordre de graphique cohérent
+    for cat in ["critical", "high", "medium", "low"]:
+        severity_counter[cat] = 0
+
     for result in results_list:
-        severity = result.get("severity", "low").lower()
-        if severity not in severity_counter:
-            severity_counter[severity] = 0
-        severity_counter[severity] += 1
+        tool = str(result.get("tool", "")).upper()
+        findings = result.get("findings", [])
+        
+        # SI C'EST NUCLEI, ON PARSE CHAQUE LIGNE POUR COMPTER LES SÉVÉRITÉS RÉELLES
+        if tool == "NUCLEI" and findings:
+            for finding in findings:
+                finding_str = str(finding).lower()
+                if "[critical]" in finding_str or "severity: critical" in finding_str:
+                    severity_counter["critical"] += 1
+                elif "[high]" in finding_str or "severity: high" in finding_str:
+                    severity_counter["high"] += 1
+                elif "[medium]" in finding_str or "severity: medium" in finding_str:
+                    severity_counter["medium"] += 1
+                else:
+                    severity_counter["low"] += 1
+        else:
+            # Comportement standard basé sur la sévérité globale pour les autres outils
+            severity = result.get("severity", "low").lower()
+            if severity == "weak":
+                severity = "medium"
+            if severity == "info":
+                severity = "low"
+                
+            # Si l'outil n'a pas de findings, on ne fausse pas le graphique (ou on compte 1 par défaut)
+            count = len(findings) if isinstance(findings, list) else 1
+            severity_counter[severity] += max(1, count)
 
     chart_dir = Path("/tmp/pentest_charts")
     chart_dir.mkdir(exist_ok=True)
     severity_chart = chart_dir / "severity_chart.png"
 
-    # Filter to display only categories present (> 0)
+    # Filtrer pour n'afficher que les catégories effectivement trouvées (> 0)
     labels = [k.upper() for k in severity_counter.keys() if severity_counter[k] > 0]
     sizes = [v for v in severity_counter.values() if v > 0]
     colors = [VULN_COLORS.get(k.lower(), "#4D94FF") for k in severity_counter.keys() if severity_counter[k] > 0]
@@ -42,9 +69,9 @@ def generate_charts(results_list):
 def generate_tool_chart(results_list):
     tool_counter = Counter()
     for result in results_list:
-        tool = result.get("tool", "unknown")
-        # Initialize count or extract length of findings safely
-        findings_count = len(result.get("findings", [])) if isinstance(result.get("findings"), list) else 1
+        tool = str(result.get("tool", "unknown")).upper()
+        findings = result.get("findings", [])
+        findings_count = len(findings) if isinstance(findings, list) else 1
         tool_counter[tool] += max(1, findings_count)
 
     chart_dir = Path("/tmp/pentest_charts")

@@ -82,13 +82,14 @@ def _render_chart_section(chart_paths: dict[str, str]) -> str:
     parts.append("\\end{figure}")
     return "\n".join(parts)
 
-def _render_summary_page(results: Dict[str, Any]) -> str:
+def _render_main_findings_page(results: Dict[str, Any]) -> str:
+    """Génère la page Executive Summary / Main Findings (sans détails)."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     summary = build_global_summary(normalized)
     tests = sorted(normalized.keys())
 
     parts = [
-        "\\section*{Executive Summary}",
+        "\\section*{Executive Summary \\& Main Findings}",
         "\\subsection*{Overall Calculated Risk Profile}",
         f"\\textbf{{{_escape_latex(summary['risk_level'])}}}\\\\",
         "\\subsection*{High-Level Assessment Metrics}",
@@ -99,9 +100,6 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
         "\\end{itemize}",
         _render_top_vulnerabilities(normalized),
         "\n\\subsection*{Remediation and Patching Timeframe Windows}\n\\begin{itemize}\n  \\item Critical Findings: Remediation required within 48 Hours.\n  \\item High Findings: Remediation required within 7 Days.\n  \\item Medium / Low Findings: Remediation scheduled within 30-90 Days.\n\\end{itemize}",
-        
-        _render_criticality_matrix(_criticality_matrix_rows(normalized)),
-        
         "\\subsection*{Metrics Distribution Overview}",
         "\\begin{itemize}",
     ]
@@ -127,6 +125,16 @@ def _render_summary_page(results: Dict[str, Any]) -> str:
     
     return "\n".join(parts)
 
+def _render_matrix_page(results: Dict[str, Any]) -> str:
+    """Isole la matrice de criticité sur sa propre section/page."""
+    normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
+    parts = [
+        "\\section*{Consolidated Criticality Matrix}",
+        "This matrix maps out each recognized finding to its respective threat level.",
+        _render_criticality_matrix(_criticality_matrix_rows(normalized))
+    ]
+    return "\n".join(parts)
+
 def _render_results_as_latex(results: Dict[str, Any]) -> str:
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     charts = {}
@@ -141,14 +149,19 @@ def _render_results_as_latex(results: Dict[str, Any]) -> str:
     except Exception:
         charts = {}
 
+    # --- SÉQUENCE STRUCTURÉE EXACTE DES PAGES DU RAPPORT ---
     pages = [
-        _render_summary_page(normalized),
-        _render_chart_section(charts),
-        render_methodology_page(),
-        render_architecture_page(),
+        render_architecture_page(),           # 1. Architecture de la toolbox
+        render_methodology_page(),             # 2. Méthodologie globale
+        _render_main_findings_page(normalized), # 3. Main Findings (Résumé, sans détails)
+        _render_matrix_page(normalized),       # 4. Matrice de criticité
+        _render_chart_section(charts),         # 5. Data Visualizations (Matplotlib)
     ]
+    
+    # 6. Findings détaillés (un bloc technique par outil)
     for tool, data in normalized.items():
         pages.append(_render_tool_page(tool, data))
+        
     pages.append(_render_annex_page(normalized))
     return "\n\\newpage\n".join(pages)
 
@@ -197,7 +210,6 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
             if not os.path.exists(generated_pdf):
                 return {"error": "pdflatex compilation failed, report.pdf not found in tmp dir"}
 
-            # Utilisation sûre de shutil pour éviter l'erreur d'Invalid cross-device link
             try:
                 os.replace(generated_pdf, output_path)
             except OSError as e:
