@@ -73,23 +73,23 @@ def _render_chart_section(chart_paths: dict[str, str]) -> str:
         return ""
     parts = ["\\section*{Data Visualizations and Metrics Mapping}", "\\begin{figure}[H]", "\\centering"]
     if chart_paths.get("severity_chart"):
-        parts.append(f"\\includegraphics[width=0.7\\linewidth]{{{_escape_latex(chart_paths['severity_chart'])}}}")
+        parts.append(f"\\includegraphics[width=0.65\\linewidth]{{{_escape_latex(chart_paths['severity_chart'])}}}")
         parts.append("\\caption{Global Vulnerability Breakdown by Severity}")
     if chart_paths.get("tool_chart"):
-        parts.append("\\vspace{5mm}")
-        parts.append(f"\\includegraphics[width=0.8\\linewidth]{{{_escape_latex(chart_paths['tool_chart'])}}}")
+        parts.append("\\vspace{3mm}")
+        parts.append(f"\\includegraphics[width=0.75\\linewidth]{{{_escape_latex(chart_paths['tool_chart'])}}}")
         parts.append("\\caption{Identified Findings Count per Tool Module}")
     parts.append("\\end{figure}")
     return "\n".join(parts)
 
 def _render_main_findings_page(results: Dict[str, Any]) -> str:
-    """Génère la page Executive Summary / Main Findings (sans détails)."""
+    """Generates a clean Executive Summary page without messy raw outputs."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     summary = build_global_summary(normalized)
     tests = sorted(normalized.keys())
 
     parts = [
-        "\\section*{Executive Summary \\& Main Findings}",
+        "\\section*{Executive Summary \\& Analytical Overview}",
         "\\subsection*{Overall Calculated Risk Profile}",
         f"\\textbf{{{_escape_latex(summary['risk_level'])}}}\\\\",
         "\\subsection*{High-Level Assessment Metrics}",
@@ -126,11 +126,11 @@ def _render_main_findings_page(results: Dict[str, Any]) -> str:
     return "\n".join(parts)
 
 def _render_matrix_page(results: Dict[str, Any]) -> str:
-    """Isole la matrice de criticité sur sa propre section/page."""
+    """Renders the matrix on its own dedicated section block."""
     normalized = {tool: normalize_tool_result(tool, data) for tool, data in results.items()}
     parts = [
-        "\\section*{Consolidated Criticality Matrix}",
-        "This matrix maps out each recognized finding to its respective threat level.",
+        "\\section*{Consolidated Criticality Matrix Mapping}",
+        "This registry compiles each active structural finding to its respective evaluated layer threat level.",
         _render_criticality_matrix(_criticality_matrix_rows(normalized))
     ]
     return "\n".join(parts)
@@ -149,16 +149,15 @@ def _render_results_as_latex(results: Dict[str, Any]) -> str:
     except Exception:
         charts = {}
 
-    # --- SÉQUENCE STRUCTURÉE EXACTE DES PAGES DU RAPPORT ---
+    # --- STRICT PROFESSIONAL ACADEMIC SEQUENCING ---
     pages = [
-        render_architecture_page(),           # 1. Architecture de la toolbox
-        render_methodology_page(),             # 2. Méthodologie globale
-        _render_main_findings_page(normalized), # 3. Main Findings (Résumé, sans détails)
-        _render_matrix_page(normalized),       # 4. Matrice de criticité
-        _render_chart_section(charts),         # 5. Data Visualizations (Matplotlib)
+        render_architecture_page(),
+        render_methodology_page(),
+        _render_main_findings_page(normalized),
+        _render_matrix_page(normalized),
+        _render_chart_section(charts),
     ]
     
-    # 6. Findings détaillés (un bloc technique par outil)
     for tool, data in normalized.items():
         pages.append(_render_tool_page(tool, data))
         

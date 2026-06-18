@@ -12,3 +12,6 @@ __pycache__/
 
 #ignore nuclei txt files
 nuclei*.txt
+
+#ignore results folder
+results/
