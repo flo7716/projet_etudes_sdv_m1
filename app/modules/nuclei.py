@@ -3,6 +3,7 @@ import os
 import re
 import shlex
 import subprocess
+from datetime import datetime
 
 from app.modules.interactive import prompt_text
 
@@ -51,8 +52,7 @@ def parse_nuclei(output_file: str):
                     if severity_order[level] > severity_order[max_severity]:
                         max_severity = level
 
-        # Astuce suprême : On laisse une chaîne de caractères brute pour que ton renderer 
-        # ne bugge pas, mais on force l'affichage de sa propre sévérité textuelle bien visible.
+        # On ajoute le label textuel pour faciliter le travail du renderer et de Matplotlib
         sev_label = line_severity.upper() if line_severity != "info" else "LOW"
         findings.append(f"{line} -> Severity: {sev_label}")
 
@@ -62,14 +62,17 @@ def parse_nuclei(output_file: str):
     return {
         "tool": "nuclei",
         "lines_count": len(findings),
-        "findings": findings[:25],  # Une liste de chaînes de caractères pures, parfaitement propre pour LaTeX
+        "findings": findings[:25],  # Liste propre pour le tableau LaTeX
         "raw_output": output[:4000],
         "severity": max_severity,
     }
 
 
 def run_nuclei(target: str, options: str = ""):
-    output_filename = "nuclei_output_temp.txt"
+    # Génération d'un nom de fichier unique et horodaté (ex: nuclei_20260618_193000.txt)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"nuclei_{timestamp}.txt"
+    
     command = ["nuclei", "-target", target, "-o", output_filename]
 
     if options:
@@ -88,14 +91,12 @@ def run_nuclei(target: str, options: str = ""):
             "raw_output": output
         }
 
+    # Analyse du fichier généré
     report_data = parse_nuclei(output_filename)
     
-    try:
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-    except Exception:
-        pass
-        
+    # CRUCIAL : On NE supprime PAS le fichier texte pour que tools_renderer.py et charts.py 
+    # puissent aller le lire et se synchroniser de façon autonome !
+    
     return report_data
 
 

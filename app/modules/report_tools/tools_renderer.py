@@ -1,6 +1,8 @@
 # app/modules/report_tools/tools_renderer.py
 import json
-from typing import Any, Dict, List
+import os
+import glob
+from typing import Dict, Any, List
 from .config import SEVERITY_WEIGHTS, TOOL_OBJECTIVES, TOOL_RECOMMENDATIONS
 from .utils import _escape_latex
 
@@ -40,25 +42,81 @@ def _render_top_vulnerabilities(normalized_results: Dict[str, Any]) -> str:
         sections.append("No isolated critical or high-severity vulnerabilities required immediate out-of-band patching windows.")
     return "\n".join(sections)
 
+
+
 def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[str]]:
     rows = []
     for tool, data in normalized_results.items():
-        findings = data.get("findings", [])
-        severity = str(data.get("severity", "low")).upper()
+        tool_upper = str(tool).upper()
+        global_severity = str(data.get("severity", "low")).strip().upper()
         
-        if not findings:
-            rows.append([
-                _escape_latex(tool.upper()),
-                f"Module executed successfully. No severe vulnerabilities discovered.",
-                severity
-            ])
-        else:
-            for finding in findings:
+        # 1. TRAITEMENT SPÉCIFIQUE ET LECTURE DU FICHIER .TXT POUR NUCLEI
+        if tool_upper == "NUCLEI":
+            lines = []
+            
+            # Recherche dynamique de fichiers nuclei_*.txt dans le répertoire de nuclei.py ou /tmp
+            nuclei_files = glob.glob("/app/modules/nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt")
+            
+            if nuclei_files:
+                # On prend le fichier le plus récent
+                latest_file = max(nuclei_files, key=os.path.getmtime)
+                try:
+                    with open(latest_file, "r", encoding="utf-8", errors="replace") as f:
+                        lines = [line.strip() for line in f if line.strip()]
+                except Exception:
+                    lines = []
+
+            # Fallback : si le fichier texte est introuvable ou vide, on utilise les findings du dictionnaire
+            if not lines:
+                lines = data.get("findings", [])
+
+            if not lines:
                 rows.append([
-                    _escape_latex(tool.upper()),
-                    _escape_latex(finding), # CORRECTION ICI : Échappement obligatoire du finding pour éviter le crash du '&'
-                    severity
+                    _escape_latex("NUCLEI"),
+                    "Module executed successfully. No severe vulnerabilities discovered.",
+                    "LOW"
                 ])
+            else:
+                for line in lines:
+                    line_str = str(line)
+                    line_lower = line_str.lower()
+                    
+                    # Détermination dynamique de la sévérité par ligne
+                    if "[critical]" in line_lower or "severity: critical" in line_lower:
+                        row_severity = "CRITICAL"
+                    elif "[high]" in line_lower or "severity: high" in line_lower:
+                        row_severity = "HIGH"
+                    elif "[medium]" in line_lower or "severity: medium" in line_lower:
+                        row_severity = "MEDIUM"
+                    else:
+                        row_severity = "LOW"
+                    
+                    # Nettoyage de la ligne pour le tableau LaTeX
+                    clean_finding = line_str.split(" -> Severity:")[0]
+                    
+                    rows.append([
+                        _escape_latex("NUCLEI"),  # Strictement NUCLEI global
+                        _escape_latex(clean_finding),
+                        row_severity
+                    ])
+                    
+        # 2. COMPORTEMENT STANDARD POUR LES AUTRES OUTILS (Nmap, Sqlmap, etc.)
+        else:
+            findings = data.get("findings", [])
+            if not findings:
+                rows.append([
+                    _escape_latex(tool_upper),
+                    "Module executed successfully. No severe vulnerabilities discovered.",
+                    global_severity
+                ])
+            else:
+                for finding in findings:
+                    rows.append([
+                        _escape_latex(tool_upper),
+                        _escape_latex(str(finding)),
+                        global_severity
+                    ])
+                    
     return rows
 
 def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[str]]:
