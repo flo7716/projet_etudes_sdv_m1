@@ -45,7 +45,7 @@ LATEX_TEMPLATE = r"""\documentclass{article}
 \begin{titlepage}
     \centering
     \vspace*{1.5cm}
-    \includegraphics[width=0.35\linewidth]{app/modules/model/swissknife_logo.jpg}\\[1cm]
+    \includegraphics[width=0.35\linewidth]{../modules/model/swissknife_logo.jpg}\\[1cm]
     
     {\scshape\LARGE SDV School --- Master 1 Cybersecurity \par}
     \vspace{0.8cm}
