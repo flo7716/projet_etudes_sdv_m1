@@ -59,14 +59,17 @@ LATEX_TEMPLATE = r"""\documentclass{article}
     \begin{minipage}{0.4\textwidth}
         \begin{flushleft} \large
             \break\emph{Author:}\\
-            Security Operator
+            Florian André
+            Amine Kahlaoui
+            Adeshilan Mosebolatan
+            Anas Talibi
         \end{flushleft}
     \end{minipage}
     ~
     \begin{minipage}{0.4\textwidth}
         \begin{flushright} \large
             \break\emph{Evaluated By:} \\
-            Examination Jury
+            Nathan Bramli
         \end{flushright}
     \end{minipage}
     
