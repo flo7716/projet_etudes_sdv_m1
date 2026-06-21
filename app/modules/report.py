@@ -5,7 +5,9 @@ import subprocess
 import tempfile
 import shutil
 import errno
+from datetime import datetime
 from typing import Dict, Any
+import glob
 
 from app.modules.report_tools.config import SEVERITY_WEIGHTS
 from app.modules.report_tools.utils import _escape_latex
@@ -175,6 +177,27 @@ def _is_mount(path: str) -> bool:
         return False
 
 def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, copy_to_host: bool = False, host_dest: str | None = None) -> Dict[str, Any]:
+    # 1. Extraction propre de la cible (IP ou Domaine) pour nommer le dossier
+    target_host = "unknown_host"
+    for tool, data in results.items():
+        if isinstance(data, dict) and data.get("target"):
+            raw_target = str(data["target"])
+            clean_target = re.sub(r'https?://', '', raw_target).split(':')[0].strip('/')
+            if clean_target:
+                target_host = clean_target
+                break
+
+    # 2. Génération du timestamp unique
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # 3. Reconstruction dynamique du dossier de résultats : results_<host>_<timestamp>
+    base_filename = os.path.basename(output_path) or "security_report.pdf"
+    new_results_dir = f"results_{target_host}_{timestamp}"
+    output_path = os.path.join(new_results_dir, base_filename)
+
+    # 4. Sous-dossier dédié pour les dumps bruts textuels des outils
+    raw_outputs_dir = os.path.join(new_results_dir, "tool_outputs")
+
     if isinstance(title, dict):
         clean_title = str(title.get("title", title.get("text", "Pentest Automation Report")))
     else:
@@ -193,8 +216,8 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
     if TITLE_PLACEHOLDER in template:
         template = template.replace(TITLE_PLACEHOLDER, _escape_latex(clean_title))
 
-    out_dir = os.path.dirname(output_path)
-    if out_dir: os.makedirs(out_dir, exist_ok=True)
+    # CRUCIAL : Création sécurisée de l'arborescence complète du dossier local
+    os.makedirs(raw_outputs_dir, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as td:
         tex_path = os.path.join(td, "report.tex")
@@ -209,6 +232,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
             if not os.path.exists(generated_pdf):
                 return {"error": "pdflatex compilation failed, report.pdf not found in tmp dir"}
 
+            # Déplacement du PDF vers le dossier dynamique
             try:
                 os.replace(generated_pdf, output_path)
             except OSError as e:
@@ -218,26 +242,55 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                 else:
                     raise
 
-            info = {"pdf_path": output_path}
-
-            if copy_to_host:
-                if host_dest:
+            # --- EXPORTATION ET COPIE DES FICHIERS TEXTES BRUTS ---
+            # A. Capturer et copier les fichiers physiques créés par Nuclei (dans /tmp ou répertoire courant)
+            for file_path in glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt"):
+                if os.path.exists(file_path):
                     try:
-                        os.makedirs(host_dest, exist_ok=True)
-                        dest = os.path.join(host_dest, os.path.basename(output_path))
-                        if os.path.abspath(dest) != os.path.abspath(output_path):
-                            shutil.copy2(output_path, dest)
-                        info["copied_to_host"] = dest
+                        shutil.copy2(file_path, os.path.join(raw_outputs_dir, os.path.basename(file_path)))
+                    except Exception:
+                        pass
+
+            # B. Extraire les "raw_output" en mémoire vers des fichiers .txt indépendants
+            for tool_name, data in results.items():
+                raw_content = data.get("raw_output") if isinstance(data, dict) else data
+                if raw_content:
+                    txt_filename = f"{tool_name.lower()}_raw_output.txt"
+                    txt_dest_path = os.path.join(raw_outputs_dir, txt_filename)
+                    try:
+                        with open(txt_dest_path, "w", encoding="utf-8", errors="replace") as txt_f:
+                            if isinstance(raw_content, (dict, list)):
+                                txt_f.write(json.dumps(raw_content, indent=2))
+                            else:
+                                txt_f.write(str(raw_content))
+                    except Exception:
+                        pass
+
+            info = {"pdf_path": output_path, "results_directory": new_results_dir, "raw_outputs_directory": raw_outputs_dir}
+
+            # Si l'option de copie vers le volume partagé hôte est activée
+            if copy_to_host:
+                actual_host_dest = os.path.join(host_dest, new_results_dir) if host_dest else None
+                if actual_host_dest:
+                    try:
+                        # Copie récursive de l'intégralité du dossier (PDF + sous-dossier txt)
+                        if os.path.exists(actual_host_dest):
+                            shutil.rmtree(actual_host_dest)
+                        shutil.copytree(new_results_dir, actual_host_dest)
+                        info["copied_to_host"] = os.path.join(actual_host_dest, base_filename)
                     except Exception as e:
                         info["copy_error"] = str(e)
                 else:
+                    # Fallback sur les autres montages d'hôtes découverts dynamiquement
                     for cand in _find_host_mount_candidates():
                         if not cand: continue
                         if _is_mount(cand) or os.path.exists(cand):
                             try:
-                                dest = os.path.join(cand, os.path.basename(output_path))
-                                shutil.copy2(output_path, dest)
-                                info["copied_to_host"] = dest
+                                host_target_dir = os.path.join(cand, new_results_dir)
+                                if os.path.exists(host_target_dir):
+                                    shutil.rmtree(host_target_dir)
+                                shutil.copytree(new_results_dir, host_target_dir)
+                                info["copied_to_host"] = os.path.join(host_target_dir, base_filename)
                                 break
                             except Exception:
                                 continue
