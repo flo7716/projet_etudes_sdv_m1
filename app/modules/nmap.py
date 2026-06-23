@@ -1,6 +1,9 @@
 # app/modules/nmap.py
 import subprocess
 import xml.etree.ElementTree as ET
+import os
+import tempfile
+import shlex
 from app.modules.interactive import prompt_text
 
 def parse_nmap(xml_output):
@@ -79,44 +82,65 @@ def parse_nmap(xml_output):
     }
 
 def run_nmap(target, options=None):
+    # Création d'un fichier temporaire sécurisé pour réceptionner le flux XML de Nmap
+    fd, temp_xml_path = tempfile.mkstemp(suffix=".xml")
+    os.close(fd)
+
+    # Commande modifiée : l'output normal (texte) ira dans stdout, le XML va dans le fichier temporaire
     command = [
         "nmap",
         "-sV",
         "-sC",
         "-O",
-        "-oX", "-"  # Output XML data directly to stdout for immediate dynamic parsing
+        "-oX", temp_xml_path
     ]
 
     if options:
-        import shlex
         command.extend(shlex.split(options))
 
     command.append(target)
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True
-    )
-
-    if result.returncode != 0:
-        return {
-            "error": result.stderr,
-            "findings": [f"Error during network scanning execution: {result.stderr[:100]}"],
-            "severity": "low",
-            "summary": "Nmap failed to execute properly."
-        }
-
     try:
-        return parse_nmap(result.stdout)
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            return {
+                "error": result.stderr,
+                "findings": [f"Error during network scanning execution: {result.stderr[:100]}"],
+                "severity": "low",
+                "summary": "Nmap failed to execute properly.",
+                "raw_output": result.stderr
+            }
+
+        # Lecture du fichier XML généré pour le parsing d'analyse interne
+        if os.path.exists(temp_xml_path) and os.path.getsize(temp_xml_path) > 0:
+            with open(temp_xml_path, "r", encoding="utf-8", errors="replace") as f:
+                xml_content = f.read()
+            
+            parsed_data = parse_nmap(xml_content)
+            
+            # CRUCIAL : On injecte la sortie standard TEXTE brute (et non le XML) pour le fichier d'output et le rapport
+            parsed_data["raw_output"] = result.stdout
+            return parsed_data
+        else:
+            raise ET.ParseError("XML output file is empty or missing.")
+
     except ET.ParseError:
         return {
             "error": "Failed to parse Nmap XML payload structures",
-            "raw_output": result.stdout[:500],
+            "raw_output": result.stdout[:1000] if result.stdout else "No output stream captured.",
             "findings": ["Error parsing Nmap standard XML structure."],
             "severity": "low",
             "summary": "XML structural anomaly discovered."
         }
+    finally:
+        # Nettoyage strict et systématique du fichier temporaire
+        if os.path.exists(temp_xml_path):
+            os.remove(temp_xml_path)
 
 def run_nmap_interactive():
     target = prompt_text(
