@@ -4,8 +4,8 @@ import os
 import glob
 import re
 from typing import Dict, Any, List
-from .config import TOOL_OBJECTIVES, TOOL_RECOMMENDATIONS
-from .utils import _escape_latex
+from app.modules.report_tools.config import TOOL_OBJECTIVES, TOOL_RECOMMENDATIONS, TOOL_CONSEQUENCES
+from app.modules.report_tools.utils import _escape_latex
 
 def normalize_tool_result(tool: str, data: Any, target: str | None = None) -> Dict[str, Any]:
     if isinstance(data, dict) and data.get("tool") and "findings" in data:
@@ -46,6 +46,7 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
     for tool, data in normalized_results.items():
         tool_upper = str(tool).upper()
         global_severity = str(data.get("severity", "low")).strip().upper()
+        consequence = TOOL_CONSEQUENCES.get(tool, "Potential security compromise or policy violation.")
         
         if tool_upper == "NUCLEI":
             nuclei_files = glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt")
@@ -65,7 +66,7 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
                 rows.append([_escape_latex("NUCLEI"), "Module executed successfully. No severe entries recorded.", "LOW"])
                 continue
 
-            # CONSOLIDATION / GROUPING TO AVOID MASSIVE ROWS DUMP
+            # CONSOLIDATION / GROUPING POUR NUCLEI
             grouped_findings = {}
             for line in lines:
                 line_str = str(line)
@@ -87,7 +88,7 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
             for vuln_type, sev in grouped_findings.items():
                 rows.append([
                     _escape_latex("NUCLEI"),
-                    f"Presence of: \\textbf{{{_escape_latex(vuln_type)}}} (Consolidated signature detection)",
+                    f"Presence of: \\textbf{{{_escape_latex(vuln_type)}}} (Consequence: {_escape_latex(consequence)})",
                     sev
                 ])
         else:
@@ -95,8 +96,11 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
             if not findings:
                 rows.append([_escape_latex(tool_upper), "Module executed successfully. No severe entries recorded.", global_severity])
             else:
-                for finding in findings[:8]:  # Limit standard tools as well to preserve layouts
-                    rows.append([_escape_latex(tool_upper), _escape_latex(str(finding)), global_severity])
+                # REQUÊTE : Remplacement des failles brutes par un décompte + affichage des conséquences
+                count = len(findings)
+                description = f"Identified \\textbf{{{count}}} alert exposures. \\textbf{{Impact:}} {_escape_latex(consequence)}"
+                rows.append([_escape_latex(tool_upper), description, global_severity])
+                
     return rows
 
 def _render_criticality_matrix(rows: List[List[str]]) -> str:
@@ -107,7 +111,8 @@ def _render_criticality_matrix(rows: List[List[str]]) -> str:
         "\\begin{table}[H]",
         "\\centering",
         "\\caption{Consolidated Security Vulnerability Matrix Mapping}",
-        "\\begin{tabular}{|l|p{9cm}|l|}",
+        # Utilisation de p{8.5cm} et p{2.5cm} pour forcer un découpage propre sans débordement
+        "\\begin{tabular}{|l|p{8.5cm}|p{2.5cm}|}",
         "\\hline",
         "\\rowcolor{gray!20} \\textbf{Module Engine} & \\textbf{Detected Threat Description Vector} & \\textbf{Severity} \\\\",
         "\\hline"
@@ -121,6 +126,7 @@ def _render_criticality_matrix(rows: List[List[str]]) -> str:
         elif "medium" in sev: color_tag = "\\cellcolor{vulnmedium!40}"
         elif "low" in sev: color_tag = "\\cellcolor{vulnlow!40}"
         
+        # Le contenu de la case sévérité est enveloppé pour s'adapter à la largeur fixe p{2.5cm}
         tex.append(f"{r[0]} & {r[1]} & {color_tag}\\textbf{{{r[2]}}} \\\\")
         tex.append("\\hline")
         
@@ -132,6 +138,7 @@ def _render_tool_page(tool: str, data: Dict[str, Any]) -> str:
     severity = str(data.get("severity", "low")).lower()
     findings = data.get("findings", [])
     recommendations = data.get("recommendations", [])
+    consequence = TOOL_CONSEQUENCES.get(tool, "Potential system compromise or exposure.")
     
     color_map = {"critical": "vulncritical", "high": "vulnhigh", "medium": "vulnmedium", "low": "vulnlow"}
     box_color = color_map.get(severity, "gray")
@@ -142,7 +149,8 @@ def _render_tool_page(tool: str, data: Dict[str, Any]) -> str:
         f"\\textbf{{Orchestration Status:}} COMPLETED \\\\",
         f"\\textbf{{Tracked Asset Target:}} {_escape_latex(str(data.get('target', 'Local Host')))} \\\\",
         f"\\textbf{{Maximum Severity Threat:}} \\uppercase{{{severity}}} \\\\",
-        f"\\textbf{{Total Generated Alerts Count:}} {len(findings)}",
+        f"\\textbf{{Total Generated Alerts Count:}} {len(findings)} \\\\",
+        f"\\textbf{{Threat Consequence Impact:}} {_escape_latex(str(consequence))}",
         f"\\end{{tcolorbox}}\n",
         "\\subsection*{Identified Vulnerability Highlights}"
     ]

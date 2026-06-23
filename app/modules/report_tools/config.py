@@ -18,6 +18,21 @@ TOOL_OBJECTIVES = {
     "clamscan": "Scan files or directories for known malware indicators.",
 }
 
+TOOL_CONSEQUENCES = {
+    "nmap": "Unrestricted services may allow unauthorized access or data exfiltration.",
+    "aircrack_ng": "Weak wireless security can lead to unauthorized network access.",
+    "sslyze": "Poor TLS/SSL configurations can expose sensitive data to interception.",
+    "gobuster": "Exposed directories may reveal sensitive files or application logic.",
+    "ffuf": "Accessible hidden paths can lead to unauthorized access or data leaks.",
+    "nikto": "Misconfigured servers can be exploited for unauthorized access or data compromise.",
+    "nuclei": "Vulnerable components can be exploited to compromise the target system.",
+    "sqlmap": "SQL injection vulnerabilities can lead to data breaches or unauthorized database access.",
+    "hydra": "Weak credentials can be exploited to gain unauthorized access.",
+    "john": "Compromised credentials can lead to unauthorized access and privilege escalation.",
+    "tshark": "Exposed network traffic can reveal sensitive information or system weaknesses.",
+    "clamscan": "Malware infections can compromise system integrity and data security.",
+}
+
 TOOL_RECOMMENDATIONS = {
     "nmap": "Close unnecessary services, restrict exposed ports and monitor for unexpected network listeners.",
     "aircrack_ng": "Strengthen wireless protections and require WPA3 or strong passphrase policies.",

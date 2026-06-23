@@ -167,24 +167,32 @@ def run_pipeline_interactive():
 
                 if test == "nmap":
                     raw_result = run_nmap(target, options)
+                    results[test] = normalize_tool_result(test, raw_result, target)
                 elif test == "sslyze":
                     raw_result = run_sslyze(target, options)
+                    results[test] = normalize_tool_result(test, raw_result, target)
                 elif test == "nikto":
                     raw_result = run_nikto(target, options)
+                    results[test] = normalize_tool_result(test, raw_result, target)
                 elif test == "gobuster":
                     raw_result = run_gobuster(target, None, options)
+                    results[test] = normalize_tool_result(test, raw_result, target)
                 elif test == "nuclei":
                     raw_result = run_nuclei(target, options)
+                    results[test] = normalize_tool_result(test, raw_result, target)
                 elif test == "ffuf":
                     wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
+                    # On stocke DIRECTEMENT le résultat car run_ffuf renvoie déjà un dictionnaire normalisé !
                     raw_result = run_ffuf(target, wordlist, options)
+                    results[test] = raw_result
                 elif test == "sqlmap":
                     if "--batch" not in options:
                         options += " --batch"
                     raw_result = run_sqlmap(target, options, interactive=False)
+                    results[test] = normalize_tool_result(test, raw_result, target)
 
-                results[test] = normalize_tool_result(test, raw_result, target)
                 console.print(f"[green]✓ {test.upper()} completed[/green]")
+                
             except Exception as e:
                 results[test] = {
                     "tool": test, 
