@@ -6,6 +6,7 @@ Provides a user-friendly menu-driven interface to run security testing tools
 
 import sys
 import os
+import signal
 from datetime import datetime, timezone
 import questionary
 from rich.console import Console
@@ -35,11 +36,17 @@ console = Console()
 def display_banner():
     """Display welcome banner"""
     banner = Panel(
-        "[bold red]SWISSKNIFE[/bold red]\n[green]Interactive CLI Interface[/green]",
+        "[bold red]SWISSKNIFE[/bold red]\n[green]Interactive CLI Interface[/green]\n"
+        "[yellow](Press Ctrl+Z, Ctrl+C or Esc to abort an operation and return to menu)[/yellow]",
         title="[bold]Welcome[/bold]",
         border_style="red",
     )
     console.print(banner)
+
+
+def handle_sigtstp(signum, frame):
+    """Convert Ctrl+Z (SIGTSTP) into a KeyboardInterrupt to prevent terminal suspension"""
+    raise KeyboardInterrupt
 
 
 def run_interactive_tool(interactive_func, label):
@@ -48,155 +55,164 @@ def run_interactive_tool(interactive_func, label):
         result = interactive_func()
         console.print(f"[green]✓ {label} completed[/green]")
         console.print(result)
+    except KeyboardInterrupt:
+        console.print(f"\n[yellow]⚠ {label} cancelled by operator. Returning to main menu...[/yellow]")
     except Exception as e:
         console.print(f"[red]✗ Error while running {label}: {str(e)}[/red]")
 
 
 def run_pipeline_interactive():
     """Interactive pipeline execution (Cleaned from slow/unautomated tools)"""
-    console.print("\n[bold cyan]=== PENTEST AUTOMATED PIPELINE ===[/bold cyan]")
-    
-    target = questionary.text(
-        "Enter target host/URL:",
-        validate=lambda x: len(x) > 0
-    ).ask()
-    
-    # Selection pruned to guarantee automated pipeline speed and reliability
-    tests = questionary.checkbox(
-        "Select automated tests to run:",
-        choices=[
-            "nmap", 
-            "sslyze", 
-            "nikto", 
-            "gobuster", 
-            "nuclei", 
-            "ffuf", 
-            "sqlmap"
-        ],
-        validate=lambda x: len(x) > 0
-    ).ask()
-
-    pipeline_args = {}
-
-    # Sequential extraction of module parameters
-    for test in tests:
-        console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
-        pipeline_args[test] = {"options": ""}
-
-        if test == "nmap":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional nmap options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "sslyze":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional sslyze options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "nikto":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional nikto options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "gobuster":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional gobuster options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "nuclei":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional nuclei options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "ffuf":
-            pipeline_args[test]["wordlist"] = questionary.text(
-                "Wordlist path:",
-                default="/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
-            ).ask()
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional ffuf options (leave empty for defaults):",
-                default=""
-            ).ask()
-        elif test == "sqlmap":
-            pipeline_args[test]["options"] = questionary.text(
-                "Additional sqlmap options (e.g. --batch --crawl=2):",
-                default="--batch"
-            ).ask()
+    try:
+        console.print("\n[bold cyan]=== PENTEST AUTOMATED PIPELINE ===[/bold cyan]")
         
-        console.print(f"[green]Options for {test.upper()} configured successfully[/green]")
+        target = questionary.text(
+            "Enter target host/URL:",
+            validate=lambda x: len(x) > 0
+        ).ask()
+        
+        if target is None:  # Interruption via Ctrl+Z ou Échap
+            raise KeyboardInterrupt
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
-    default_filename = f"report_{timestamp}.pdf"
-    output_file = questionary.text(
-        "Output PDF filename:",
-        default=default_filename
-    ).ask()
-    
-    if not output_file or not output_file.strip():
-        output_file = default_filename
-    elif not output_file.lower().endswith(".pdf"):
-        output_file = f"{output_file}.pdf"
-    
-    copy_to_host = questionary.confirm(
-        "Copy PDF report to host mount?",
-        default=False
-    ).ask()
-    
-    console.print(f"\n[yellow]Running automated pipeline with modules: {', '.join(tests)}[/yellow]")
-    results = {}
-    
-    for test in tests:
-        try:
-            console.print(f"\n[bold blue]▶ Running {test.upper()}...[/bold blue]")
-            options = pipeline_args.get(test, {}).get("options", "")
-            raw_result = None
+        # Selection pruned to guarantee automated pipeline speed and reliability
+        tests = questionary.checkbox(
+            "Select automated tests to run:",
+            choices=[
+                "nmap", 
+                "sslyze", 
+                "nikto", 
+                "gobuster", 
+                "nuclei", 
+                "ffuf", 
+                "sqlmap"
+            ],
+            validate=lambda x: len(x) > 0
+        ).ask()
+
+        if tests is None:
+            raise KeyboardInterrupt
+
+        pipeline_args = {}
+
+        # Sequential extraction of module parameters
+        for test in tests:
+            console.print(f"\n[bold yellow]Options for {test.upper()}:[/bold yellow]")
+            pipeline_args[test] = {"options": ""}
 
             if test == "nmap":
-                raw_result = run_nmap(target, options)
+                opt = questionary.text("Additional nmap options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "sslyze":
-                raw_result = run_sslyze(target, options)
+                opt = questionary.text("Additional sslyze options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "nikto":
-                raw_result = run_nikto(target, options)
+                opt = questionary.text("Additional nikto options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "gobuster":
-                raw_result = run_gobuster(target, None, options)
+                opt = questionary.text("Additional gobuster options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "nuclei":
-                raw_result = run_nuclei(target, options)
+                opt = questionary.text("Additional nuclei options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "ffuf":
-                wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
-                raw_result = run_ffuf(target, wordlist, options)
+                wlist = questionary.text("Wordlist path:", default="/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt").ask()
+                if wlist is None: raise KeyboardInterrupt
+                pipeline_args[test]["wordlist"] = wlist
+                opt = questionary.text("Additional ffuf options (leave empty for defaults):", default="").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
             elif test == "sqlmap":
-                # Forced batch mode to ensure automation within the global pipeline execution flow
-                if "--batch" not in options:
-                    options += " --batch"
-                raw_result = run_sqlmap(target, options, interactive=False)
+                opt = questionary.text("Additional sqlmap options (e.g. --batch --crawl=2):", default="--batch").ask()
+                if opt is None: raise KeyboardInterrupt
+                pipeline_args[test]["options"] = opt
+            
+            console.print(f"[green]Options for {test.upper()} configured successfully[/green]")
 
-            results[test] = normalize_tool_result(test, raw_result, target)
-            console.print(f"[green]✓ {test.upper()} completed[/green]")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
+        default_filename = f"report_{timestamp}.pdf"
+        output_file = questionary.text(
+            "Output PDF filename:",
+            default=default_filename
+        ).ask()
+        
+        if output_file is None:
+            raise KeyboardInterrupt
+
+        if not output_file or not output_file.strip():
+            output_file = default_filename
+        elif not output_file.lower().endswith(".pdf"):
+            output_file = f"{output_file}.pdf"
+        
+        copy_to_host = questionary.confirm(
+            "Copy PDF report to host mount?",
+            default=False
+        ).ask()
+
+        if copy_to_host is None:
+            raise KeyboardInterrupt
+        
+        console.print(f"\n[yellow]Running automated pipeline with modules: {', '.join(tests)}[/yellow]")
+        results = {}
+        
+        for test in tests:
+            try:
+                console.print(f"\n[bold blue]▶ Running {test.upper()}...[/bold blue]")
+                options = pipeline_args.get(test, {}).get("options", "")
+                raw_result = None
+
+                if test == "nmap":
+                    raw_result = run_nmap(target, options)
+                elif test == "sslyze":
+                    raw_result = run_sslyze(target, options)
+                elif test == "nikto":
+                    raw_result = run_nikto(target, options)
+                elif test == "gobuster":
+                    raw_result = run_gobuster(target, None, options)
+                elif test == "nuclei":
+                    raw_result = run_nuclei(target, options)
+                elif test == "ffuf":
+                    wordlist = pipeline_args.get(test, {}).get("wordlist", "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt")
+                    raw_result = run_ffuf(target, wordlist, options)
+                elif test == "sqlmap":
+                    if "--batch" not in options:
+                        options += " --batch"
+                    raw_result = run_sqlmap(target, options, interactive=False)
+
+                results[test] = normalize_tool_result(test, raw_result, target)
+                console.print(f"[green]✓ {test.upper()} completed[/green]")
+            except Exception as e:
+                results[test] = {
+                    "tool": test, 
+                    "error": str(e), 
+                    "summary": str(e), 
+                    "findings": [], 
+                    "severity": "medium", 
+                    "recommendations": [], 
+                    "raw_output": str(raw_result) if 'raw_result' in locals() else ""
+                }
+                console.print(f"[red]✗ {test.upper()} failed: {str(e)}[/red]")
+
+        report_title = f"Pentest report for {target} ({timestamp})"
+        try:
+            result = generate_pdf_report(
+                results,
+                report_title,
+                output_file,
+                copy_to_host=copy_to_host,
+            )
+            console.print(f"\n[green]✓ Pipeline completed[/green]")
+            console.print(f"[green]Report saved to: {output_file}[/green]")
+            console.print(result)
         except Exception as e:
-            results[test] = {
-                "tool": test, 
-                "error": str(e), 
-                "summary": str(e), 
-                "findings": [], 
-                "severity": "medium", 
-                "recommendations": [], 
-                "raw_output": str(raw_result) if 'raw_result' in locals() else ""
-            }
-            console.print(f"[red]✗ {test.upper()} failed: {str(e)}[/red]")
+            console.print(f"[red]✗ Error during report generation: {str(e)}[/red]")
 
-    report_title = f"Pentest report for {target} ({timestamp})"
-    try:
-        result = generate_pdf_report(
-            results,
-            report_title,
-            output_file,
-            copy_to_host=copy_to_host,
-        )
-        console.print(f"\n[green]✓ Pipeline completed[/green]")
-        console.print(f"[green]Report saved to: {output_file}[/green]")
-        console.print(result)
-    except Exception as e:
-        console.print(f"[red]✗ Error during report generation: {str(e)}[/red]")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]⚠ Automated Pipeline execution aborted. Returning to main menu...[/yellow]")
 
 
 def display_tools_info():
@@ -233,89 +249,97 @@ def display_tools_info():
 
 def main():
     """Main interactive CLI loop"""
-    
-    
+    # Enregistrement de l'intercepteur de signal pour Ctrl+Z (uniquement valide sur Linux/Unix)
+    if sys.platform != "win32":
+        signal.signal(signal.SIGTSTP, handle_sigtstp)
+
     while True:
-        display_banner()
-        console.print()
-        # Calibrated selection matrix strings ensuring proper visual tabular alignment with unicode emojis
-        choice = questionary.select(
-            "Select an operation or tool to run:",
-            choices=[
-                "📊  PIPELINE     - Run Full Automated Pipeline",
-                "🔍  NMAP         - Network Scanning [Pipeline & Standalone]",
-                "🔒  SSLYZE       - SSL/TLS Analysis [Pipeline & Standalone]",
-                "🕷️   NIKTO        - Web Scanning [Pipeline & Standalone]",
-                "📁  GOBUSTER     - Directory Scanning [Pipeline & Standalone]",
-                "🧪  NUCLEI       - Vulnerability Scanning [Pipeline & Standalone]",
-                "🕷️   FFUF         - Web Fuzzing [Pipeline & Standalone]",
-                "🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]",
-                "🔓  HYDRA        - Brute-Force [Standalone Only]",
-                "🔑  JOHN         - Password Cracking [Standalone Only]",
-                "🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]",
-                "💀  MSFVENOM     - Payload Generation [Standalone Only]",
-                "🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
-                "🔍  CLAMAV       - Antivirus Scan [Standalone Only]",
-                "🦈  TSHARK       - Packet Analysis [Standalone Only]",
-                "ℹ️   INFO         - Information Matrix",
-                "❌  EXIT         - Exit Application",
-            ],
-            pointer="→"
-        ).ask()
-        
-        if "PIPELINE" in choice:
-            run_pipeline_interactive()
-        elif "NMAP" in choice:
-            run_interactive_tool(run_nmap_interactive, "Nmap scan")
-        elif "SSLYZE" in choice:
-            run_interactive_tool(run_sslyze_interactive, "Sslyze scan")
-        elif "NIKTO" in choice:
-            run_interactive_tool(run_nikto_interactive, "Nikto scan")
-        elif "GOBUSTER" in choice:
-            run_interactive_tool(run_gobuster_interactive, "Gobuster scan")
-        elif "NUCLEI" in choice:
-            run_interactive_tool(run_nuclei_interactive, "Nuclei scan")
-        elif "FFUF" in choice:
-            run_interactive_tool(run_ffuf_interactive, "Ffuf scan")
-        elif "SQLMAP" in choice:
-            run_interactive_tool(run_sqlmap_interactive, "Sqlmap scan")
-        elif "HYDRA" in choice:
-            run_interactive_tool(run_hydra_interactive, "Hydra scan")
-        elif "JOHN" in choice:
-            run_interactive_tool(run_john_interactive, "John scan")
-        elif "AIRCRACK-NG" in choice:
-            run_interactive_tool(run_aircrack_ng_interactive, "Aircrack-ng scan")
-        elif "MSFVENOM" in choice:
-            run_interactive_tool(run_msfvenom_interactive, "Msfvenom generation")
-        elif "SEARCHSPLOIT" in choice:
-            run_interactive_tool(run_searchsploit_interactive, "Searchsploit scan")
-        elif "TSHARK" in choice:
-            from app.modules.tshark import run_tshark_interactive
-            run_interactive_tool(run_tshark_interactive, "Tshark analysis")
-        elif "CLAMAV" in choice:
-            from app.modules.clamscan import run_clamscan_interactive
-            run_interactive_tool(run_clamscan_interactive, "Clamscan analysis")
-        elif "INFO" in choice:
-            display_tools_info()
-        elif "EXIT" in choice:
-            console.print("\n[green]Goodbye![/green]\n")
-            break
-        
-        continue_choice = questionary.confirm(
-            "\nReturn to main menu?",
-            default=True
-        ).ask()
-        
-        if not continue_choice:
-            console.print("\n[green]Goodbye![/green]\n")
-            break
+        try:
+            display_banner()
+            console.print()
+            choice = questionary.select(
+                "Select an operation or tool to run:",
+                choices=[
+                    "📊  PIPELINE     - Run Full Automated Pipeline",
+                    "🔍  NMAP         - Network Scanning [Pipeline & Standalone]",
+                    "🔒  SSLYZE       - SSL/TLS Analysis [Pipeline & Standalone]",
+                    "🕷️   NIKTO        - Web Scanning [Pipeline & Standalone]",
+                    "📁  GOBUSTER     - Directory Scanning [Pipeline & Standalone]",
+                    "🧪  NUCLEI       - Vulnerability Scanning [Pipeline & Standalone]",
+                    "🕷️   FFUF         - Web Fuzzing [Pipeline & Standalone]",
+                    "🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]",
+                    "🔓  HYDRA        - Brute-Force [Standalone Only]",
+                    "🔑  JOHN         - Password Cracking [Standalone Only]",
+                    "🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]",
+                    "💀  MSFVENOM     - Payload Generation [Standalone Only]",
+                    "🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
+                    "🔍  CLAMAV       - Antivirus Scan [Standalone Only]",
+                    "🦈  TSHARK       - Packet Analysis [Standalone Only]",
+                    "ℹ️   INFO         - Information Matrix",
+                    "❌  EXIT         - Exit Application",
+                ],
+                pointer="→"
+            ).ask()
+            
+            if choice is None:  # Interruption via Ctrl+Z, Ctrl+C ou Échap
+                console.print("\n[yellow]⚠ Operation aborted. Resetting menu context...[/yellow]\n")
+                continue
+
+            if "PIPELINE" in choice:
+                run_pipeline_interactive()
+            elif "NMAP" in choice:
+                run_interactive_tool(run_nmap_interactive, "Nmap scan")
+            elif "SSLYZE" in choice:
+                run_interactive_tool(run_sslyze_interactive, "Sslyze scan")
+            elif "NIKTO" in choice:
+                run_interactive_tool(run_nikto_interactive, "Nikto scan")
+            elif "GOBUSTER" in choice:
+                run_interactive_tool(run_gobuster_interactive, "Gobuster scan")
+            elif "NUCLEI" in choice:
+                run_interactive_tool(run_nuclei_interactive, "Nuclei scan")
+            elif "FFUF" in choice:
+                run_interactive_tool(run_ffuf_interactive, "Ffuf scan")
+            elif "SQLMAP" in choice:
+                run_interactive_tool(run_sqlmap_interactive, "Sqlmap scan")
+            elif "HYDRA" in choice:
+                run_interactive_tool(run_hydra_interactive, "Hydra scan")
+            elif "JOHN" in choice:
+                run_interactive_tool(run_john_interactive, "John scan")
+            elif "AIRCRACK-NG" in choice:
+                run_interactive_tool(run_aircrack_ng_interactive, "Aircrack-ng scan")
+            elif "MSFVENOM" in choice:
+                run_interactive_tool(run_msfvenom_interactive, "Msfvenom generation")
+            elif "SEARCHSPLOIT" in choice:
+                run_interactive_tool(run_searchsploit_interactive, "Searchsploit scan")
+            elif "TSHARK" in choice:
+                run_interactive_tool(run_tshark_interactive, "Tshark analysis")
+            elif "CLAMAV" in choice:
+                run_interactive_tool(run_clamscan_interactive, "Clamscan analysis")
+            elif "INFO" in choice:
+                display_tools_info()
+            elif "EXIT" in choice:
+                console.print("\n[green]Goodbye![/green]\n")
+                break
+            
+            continue_choice = questionary.confirm(
+                "\nReturn to main menu?",
+                default=True
+            ).ask()
+            
+            if continue_choice is None or not continue_choice:
+                console.print("\n[green]Goodbye![/green]\n")
+                break
+                
+        except KeyboardInterrupt:
+            console.print("\n\n[yellow]⚠ Action cancelled by operator. Resetting menu context...[/yellow]\n")
+            continue
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n\n[yellow]Interrupted by user[/yellow]\n")
+        console.print("\n\n[green]✓ CLI session ended successfully[/green]\n")
         sys.exit(0)
     except Exception as e:
         console.print(f"\n[red]Unexpected error: {str(e)}[/red]\n")
