@@ -233,9 +233,10 @@ def display_tools_info():
 
 def main():
     """Main interactive CLI loop"""
-    display_banner()
+    
     
     while True:
+        display_banner()
         console.print()
         # Calibrated selection matrix strings ensuring proper visual tabular alignment with unicode emojis
         choice = questionary.select(
@@ -251,7 +252,7 @@ def main():
                 "🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]",
                 "🔓  HYDRA        - Brute-Force [Standalone Only]",
                 "🔑  JOHN         - Password Cracking [Standalone Only]",
-                "🛜   AIRCRACK-NG  - Wireless Testing [Standalone Only]",
+                "🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]",
                 "💀  MSFVENOM     - Payload Generation [Standalone Only]",
                 "🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]",
                 "🔍  CLAMAV       - Antivirus Scan [Standalone Only]",
