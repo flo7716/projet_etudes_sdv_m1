@@ -42,64 +42,28 @@ def _render_top_vulnerabilities(normalized_results: Dict[str, Any]) -> str:
     return "\n".join(sections)
 
 def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[str]]:
+    """
+    Génère les lignes de la matrice de criticité.
+    Tous les outils, y compris NUCLEI, sont désormais consolidés de manière quantitative.
+    """
     rows = []
     for tool, data in normalized_results.items():
         tool_upper = str(tool).upper()
         global_severity = str(data.get("severity", "low")).strip().upper()
         consequence = TOOL_CONSEQUENCES.get(tool, "Potential security compromise or policy violation.")
         
-        if tool_upper == "NUCLEI":
-            nuclei_files = glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt")
-            lines = []
-            if nuclei_files:
-                latest_file = max(nuclei_files, key=os.path.getmtime)
-                try:
-                    with open(latest_file, "r", encoding="utf-8", errors="replace") as f:
-                        lines = [line.strip() for line in f if line.strip() and not line.startswith(("[INF]", "[WRN]"))]
-                except Exception:
-                    lines = []
-            
-            if not lines:
-                lines = data.get("findings", [])
-
-            if not lines:
-                rows.append([_escape_latex("NUCLEI"), "Module executed successfully. No severe entries recorded.", "LOW"])
-                continue
-
-            # CONSOLIDATION / GROUPING POUR NUCLEI
-            grouped_findings = {}
-            for line in lines:
-                line_str = str(line)
-                match_tag = re.search(r"^\[([^\]:]+)(:[^\]]+)?\]", line_str)
-                vuln_type = match_tag.group(1) if match_tag else "Web Exposure Context Policy"
-                
-                line_lower = line_str.lower()
-                if "[critical]" in line_lower or "severity: critical" in line_lower:
-                    sev = "CRITICAL"
-                elif "[high]" in line_lower or "severity: high" in line_lower:
-                    sev = "HIGH"
-                elif "[medium]" in line_lower or "severity: medium" in line_lower:
-                    sev = "MEDIUM"
-                else:
-                    sev = "LOW"
-                
-                grouped_findings[vuln_type] = sev
-
-            for vuln_type, sev in grouped_findings.items():
-                rows.append([
-                    _escape_latex("NUCLEI"),
-                    f"Presence of: \\textbf{{{_escape_latex(vuln_type)}}} (Consequence: {_escape_latex(consequence)})",
-                    sev
-                ])
+        findings = data.get("findings", [])
+        if not findings:
+            rows.append([
+                _escape_latex(tool_upper), 
+                "Module executed successfully. No severe entries recorded.", 
+                global_severity
+            ])
         else:
-            findings = data.get("findings", [])
-            if not findings:
-                rows.append([_escape_latex(tool_upper), "Module executed successfully. No severe entries recorded.", global_severity])
-            else:
-                # REQUÊTE : Remplacement des failles brutes par un décompte + affichage des conséquences
-                count = len(findings)
-                description = f"Identified \\textbf{{{count}}} alert exposures. \\textbf{{Impact:}} {_escape_latex(consequence)}"
-                rows.append([_escape_latex(tool_upper), description, global_severity])
+            # UNIFICATION : NUCLEI et tous les autres modules suivent strictement ce modèle unique
+            count = len(findings)
+            description = f"Identified \\textbf{{{count}}} alert exposures. \\textbf{{Impact:}} {_escape_latex(consequence)}"
+            rows.append([_escape_latex(tool_upper), description, global_severity])
                 
     return rows
 
@@ -158,6 +122,7 @@ def _render_tool_page(tool: str, data: Dict[str, Any]) -> str:
     if not findings:
         sections.append("No operational exceptions or exposures flagged within this engine perimeter.")
     else:
+        # Les alertes détaillées de Nuclei restent bien visibles ici dans sa section dédiée !
         for finding in findings[:10]:  # Limit to top 10 elements to optimize spacing
             sections.append(f"\\alertcard{{{box_color}}}{{\\uppercase{{{severity}}}}}{{{_escape_latex(str(finding))}}}")
 
