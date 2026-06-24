@@ -27,6 +27,7 @@ def parse_sqlmap(output):
         
     return {
         "output": output,
+        "raw_output": output,  # AJOUT CRUCIAL POUR L'ORCHESTRATEUR DE RAPPORT (report.py)
         "findings": findings,
         "severity": severity,
         "summary": "SQLmap injection testing completed." if not findings else "SQLmap confirmed critical SQL Injection."
@@ -80,26 +81,26 @@ def _attach_log_files(result: dict) -> dict:
             log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
             
             # --- ANALYSE DES FICHIERS DE LOG ET DES DUMPS ---
-            # Si SQLmap a extrait des tables ou des dumps utilisateur (fichiers CSV ou txt de dump)
             if "dump" in entry["name"].lower() or entry["name"].endswith(".csv"):
-                # Compter le nombre de lignes (donc d'entrées/utilisateurs compromis)
                 lines = [l for l in entry["content"].splitlines() if l.strip()]
-                record_count = max(0, len(lines) - 1) # Élimine la ligne d'en-tête du CSV
+                record_count = max(0, len(lines) - 1)
                 
                 result["findings"].append(
                     f"Data Exfiltration: Extracted table data '{entry['name']}' containing {record_count} records."
                 )
-                # Tenter d'extraire des couples utilisateur:mot de passe évidents s'ils apparaissent dans les fichiers
                 if "password" in entry["content"].lower() or "passwd" in entry["content"].lower():
                     result["findings"].append(
                         f"Critical Discovery: Plaintext or hashed credentials found inside extracted target logs."
                     )
             
-            # Si c'est un résumé de dictionnaire ou de structure
             elif "table" in entry["name"].lower():
                 result["findings"].append(f"Database Structure Harvested: See log file '{entry['name']}'.")
 
         result["log_summary"] = "\n".join(log_text).strip()
+        
+        # S'assurer que le raw_output exporté contient AUSSI le contenu textuel des tables exfiltrées
+        if result["log_summary"]:
+            result["raw_output"] = f"{result['output']}\n\n=== EXFILTRATED DATA LOGS ===\n{result['log_summary']}"
         
         # S'assurer que la sévérité passe au maximum si des données de tables ont été exfiltrées
         if any("Data Exfiltration" in f for f in result["findings"]):
@@ -122,9 +123,6 @@ def run_sqlmap(target, options="", interactive=False):
         except ValueError:
             command.extend(options.split())
 
-    # ==========================================
-    # CAS 1 : MODE INTERACTIF (STANDALONE SEUL)
-    # ==========================================
     if interactive:
         if "--batch" in command:
             command.remove("--batch")
@@ -158,9 +156,6 @@ def run_sqlmap(target, options="", interactive=False):
         parsed = parse_sqlmap("".join(output_chunks))
         return _attach_log_files(parsed)
 
-    # ==========================================
-    # CAS 2 : MODE AUTOMATISÉ (PIPELINE GLOBAL)
-    # ==========================================
     if "--batch" not in command:
         command.append("--batch")
         
