@@ -2,7 +2,7 @@
 
 Developed by Florian ANDRE, Amine KAHLAOUI, Adeshilan MOSEBOLATAN and Anas TALIBI
 
-![Logo](app/modules/model/swissknife_logo.jpg)
+![Logo](app/modules/report_tools/swissknife_logo.jpg)
 
 # README (Interactive CLI Guide)
 
