@@ -60,7 +60,7 @@ def _criticality_matrix_rows(normalized_results: Dict[str, Any]) -> List[List[st
                 global_severity
             ])
         else:
-            # UNIFICATION : NUCLEI et tous les autres modules suivent strictement ce modèle unique
+            # UNIFICATION : NUCLEI and all other tools are now quantitatively summarized in the matrix, with a count of findings and a concise description.
             count = len(findings)
             description = f"Identified \\textbf{{{count}}} alert exposures. \\textbf{{Impact:}} {_escape_latex(consequence)}"
             rows.append([_escape_latex(tool_upper), description, global_severity])
@@ -75,7 +75,7 @@ def _render_criticality_matrix(rows: List[List[str]]) -> str:
         "\\begin{table}[H]",
         "\\centering",
         "\\caption{Consolidated Security Vulnerability Matrix Mapping}",
-        # Utilisation de p{8.5cm} et p{2.5cm} pour forcer un découpage propre sans débordement
+        # Use of p{width} for the second column to ensure proper text wrapping and avoid overflow issues in LaTeX
         "\\begin{tabular}{|l|p{8.5cm}|p{2.5cm}|}",
         "\\hline",
         "\\rowcolor{gray!20} \\textbf{Module Engine} & \\textbf{Detected Threat Description Vector} & \\textbf{Severity} \\\\",
@@ -90,7 +90,7 @@ def _render_criticality_matrix(rows: List[List[str]]) -> str:
         elif "medium" in sev: color_tag = "\\cellcolor{vulnmedium!40}"
         elif "low" in sev: color_tag = "\\cellcolor{vulnlow!40}"
         
-        # Le contenu de la case sévérité est enveloppé pour s'adapter à la largeur fixe p{2.5cm}
+        # Severity cases are now color-coded for immediate visual recognition in the LaTeX report, enhancing readability and prioritization of findings.
         tex.append(f"{r[0]} & {r[1]} & {color_tag}\\textbf{{{r[2]}}} \\\\")
         tex.append("\\hline")
         
@@ -122,7 +122,7 @@ def _render_tool_page(tool: str, data: Dict[str, Any]) -> str:
     if not findings:
         sections.append("No operational exceptions or exposures flagged within this engine perimeter.")
     else:
-        # Les alertes détaillées de Nuclei restent bien visibles ici dans sa section dédiée !
+        # Detailed Nuclei and other tool findings are now included in the report, with a limit of the top 10 entries to optimize space and readability.
         for finding in findings[:10]:  # Limit to top 10 elements to optimize spacing
             sections.append(f"\\alertcard{{{box_color}}}{{\\uppercase{{{severity}}}}}{{{_escape_latex(str(finding))}}}")
 

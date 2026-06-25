@@ -28,11 +28,11 @@ def parse_nuclei(output_file: str):
     severity_order = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
     max_severity = "info"
     
-    # REGEX : Capture le contenu du 3ème crochet [template] [protocol] [SEVERITY]
+    # REGEX : Captures the severity level from Nuclei output lines, e.g., "[INF]", "[LOW]", "[MEDIUM]", "[HIGH]", "[CRITICAL]" (3rd group)
     nuclei_pattern = re.compile(r"^\[[^\]]+\]\s+\[[^\]]+\]\s+\[([^\]]+)\]")
 
     for line in lines:
-        # Ignorer les lignes de logs/bannières de Nuclei qui commencent par [INF] ou [WRN]
+        # Ignore lines that are purely informational or warnings/errors without specific findings
         if line.startswith(("[INF]", "[WRN]", "[ERR]")):
             continue
             
@@ -45,7 +45,7 @@ def parse_nuclei(output_file: str):
                 if severity_order[line_severity] > severity_order[max_severity]:
                     max_severity = line_severity
         else:
-            # Fallback si format de ligne exotique
+            # Fallback if the line doesn't match the expected pattern, check for severity keywords in the line
             line_lower = line.lower()
             for level in ["info", "low", "medium", "high", "critical"]:
                 if f"[{level}]" in line_lower:
@@ -53,25 +53,25 @@ def parse_nuclei(output_file: str):
                     if severity_order[level] > severity_order[max_severity]:
                         max_severity = level
 
-        # On garde l'alerte propre pour le Focus Technique détaillé et l'Annexe
+        # We keep all lines that are not purely informational, even if they don't match the regex, to ensure we capture potential findings
         findings.append(line)
 
     if max_severity == "info":
         max_severity = "low"
 
-    # FORMATAGE QUANTITATIF UNIFIÉ POUR LA MATRICE
+    # Unified quantitative summary for the report, indicating the number of findings and the highest severity level detected
     return {
         "tool": "nuclei",
-        "findings": findings,  # Liste complète conservée pour les détails techniques plus loin
+        "findings": findings,  # Complete list of findings, including lines that may not match the regex but are relevant
         "raw_output": output,
         "severity": max_severity,
-        # Cette ligne permet à tools_renderer d'accoler automatiquement le nombre et la conséquence
+        # This line provides a concise summary of the findings, indicating the total number of alert exposures identified by Nuclei
         "summary": f"Identified {len(findings)} alert exposures."
     }
 
 
 def run_nuclei(target: str, options: str = ""):
-    # Utilisation du répertoire /tmp sécurisé pour éviter d'avoir des fichiers parasites partout
+    # Use the tempfile module to create a temporary file for Nuclei output, ensuring that the file is unique and avoids conflicts
     fd, temp_output_path = tempfile.mkstemp(suffix=".txt", prefix="nuclei_")
     os.close(fd)
     
@@ -98,7 +98,7 @@ def run_nuclei(target: str, options: str = ""):
         return parse_nuclei(temp_output_path)
 
     finally:
-        # Destruction propre du fichier temporaire du conteneur après extraction
+        # Ensure that the temporary output file is removed after processing to avoid clutter and potential data leaks
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
 

@@ -13,7 +13,7 @@ def _escape_latex(text: Any) -> str:
     if text is None:
         return ""
     
-    # Si c'est un dictionnaire ou une liste, on le convertit en chaîne propre au lieu de crasher
+    # If it's a dict or list, we convert it to a string representation for LaTeX escaping
     if isinstance(text, dict):
         text = text.get("summary", text.get("error", str(text)))
     elif isinstance(text, list):

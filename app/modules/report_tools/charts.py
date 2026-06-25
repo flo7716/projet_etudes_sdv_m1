@@ -15,7 +15,7 @@ VULN_COLORS = {
 def generate_charts(results_list):
     severity_counter = Counter()
     
-    # Initialisation forcée de toutes les catégories pour conserver un ordre de graphique cohérent
+    # Forced initialization of all severity categories to ensure consistent chart representation, even if some categories have zero findings
     for cat in ["critical", "high", "medium", "low"]:
         severity_counter[cat] = 0
 
@@ -23,7 +23,7 @@ def generate_charts(results_list):
         tool = str(result.get("tool", "")).upper()
         findings = result.get("findings", [])
         
-        # SI C'EST NUCLEI, ON PARSE CHAQUE LIGNE POUR COMPTER LES SÉVÉRITÉS RÉELLES
+        # If the tool is NUCLEI, we parse the findings to count the number of occurrences per severity level, as NUCLEI provides detailed severity information in its output.
         if tool == "NUCLEI" and findings:
             for finding in findings:
                 finding_str = str(finding).lower()
@@ -36,14 +36,14 @@ def generate_charts(results_list):
                 else:
                     severity_counter["low"] += 1
         else:
-            # Comportement standard basé sur la sévérité globale pour les autres outils
+            # Standardized severity mapping for other tools, ensuring that even if a tool does not provide explicit severity levels, we can still categorize its findings appropriately.
             severity = result.get("severity", "low").lower()
             if severity == "weak":
                 severity = "medium"
             if severity == "info":
                 severity = "low"
                 
-            # Si l'outil n'a pas de findings, on ne fausse pas le graphique (ou on compte 1 par défaut)
+            # If the tool does not provide a list of findings, we still increment the severity counter to reflect that the tool was executed and produced output, even if no specific findings were identified.
             count = len(findings) if isinstance(findings, list) else 1
             severity_counter[severity] += max(1, count)
 
@@ -51,7 +51,7 @@ def generate_charts(results_list):
     chart_dir.mkdir(exist_ok=True)
     severity_chart = chart_dir / "severity_chart.png"
 
-    # Filtrer pour n'afficher que les catégories effectivement trouvées (> 0)
+    # Filter to include only severity levels that have findings, ensuring that the pie chart accurately reflects the distribution of vulnerabilities without cluttering it with empty categories.
     labels = [k.upper() for k in severity_counter.keys() if severity_counter[k] > 0]
     sizes = [v for v in severity_counter.values() if v > 0]
     colors = [VULN_COLORS.get(k.lower(), "#4D94FF") for k in severity_counter.keys() if severity_counter[k] > 0]

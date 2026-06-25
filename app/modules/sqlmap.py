@@ -13,12 +13,12 @@ def parse_sqlmap(output):
     findings = []
     severity = "low"
     
-    # 1. Détection de base de la vulnérabilité
+    # 1. Vulnerability detection based on sqlmap output
     if "is vulnerable" in output or "confirming SQL injection" in output or "sqlmap identified the following injection point(s)" in output:
         findings.append("SQL Injection vulnerability detected and confirmed.")
         severity = "critical"
     
-    # 2. Extraction des bases de données trouvées dans la console
+    # 2. Data exfiltration detection based on common patterns in sqlmap output
     db_matches = re.findall(r"Database:\s+([^\s]+)", output)
     if db_matches:
         for db in set(db_matches):
@@ -27,7 +27,7 @@ def parse_sqlmap(output):
         
     return {
         "output": output,
-        "raw_output": output,  # AJOUT CRUCIAL POUR L'ORCHESTRATEUR DE RAPPORT (report.py)
+        "raw_output": output,  # Important addition to keep the raw output for further analysis
         "findings": findings,
         "severity": severity,
         "summary": "SQLmap injection testing completed." if not findings else "SQLmap confirmed critical SQL Injection."
@@ -80,7 +80,7 @@ def _attach_log_files(result: dict) -> dict:
         for entry in result["log_files"]:
             log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
             
-            # --- ANALYSE DES FICHIERS DE LOG ET DES DUMPS ---
+            # --- Dumped data detection ---
             if "dump" in entry["name"].lower() or entry["name"].endswith(".csv"):
                 lines = [l for l in entry["content"].splitlines() if l.strip()]
                 record_count = max(0, len(lines) - 1)
@@ -98,11 +98,11 @@ def _attach_log_files(result: dict) -> dict:
 
         result["log_summary"] = "\n".join(log_text).strip()
         
-        # S'assurer que le raw_output exporté contient AUSSI le contenu textuel des tables exfiltrées
+        # make sure to include the log summary in the raw output for reporting
         if result["log_summary"]:
             result["raw_output"] = f"{result['output']}\n\n=== EXFILTRATED DATA LOGS ===\n{result['log_summary']}"
         
-        # S'assurer que la sévérité passe au maximum si des données de tables ont été exfiltrées
+        # make sure to include Data Exfiltration findings in the severity assessment
         if any("Data Exfiltration" in f for f in result["findings"]):
             result["severity"] = "critical"
             

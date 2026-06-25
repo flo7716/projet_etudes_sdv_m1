@@ -177,7 +177,7 @@ def _is_mount(path: str) -> bool:
         return False
 
 def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, copy_to_host: bool = False, host_dest: str | None = None) -> Dict[str, Any]:
-    # 1. Extraction propre de la cible (IP ou Domaine) pour nommer le dossier
+    # 1. Proper extraction of the target host from the results dictionary
     target_host = "unknown_host"
     for tool, data in results.items():
         if isinstance(data, dict) and data.get("target"):
@@ -187,15 +187,15 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                 target_host = clean_target
                 break
 
-    # 2. Génération du timestamp unique
+    # 2. unique timestamp for the report generation to avoid overwriting previous reports
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # 3. Reconstruction dynamique du dossier de résultats : results_<host>_<timestamp>
+    # 3. Dynamic output path construction based on target host and timestamp
     base_filename = os.path.basename(output_path) or "security_report.pdf"
     new_results_dir = f"results_{target_host}_{timestamp}"
     output_path = os.path.join(new_results_dir, base_filename)
 
-    # 4. Sous-dossier dédié pour les dumps bruts textuels des outils
+    # 4. Create a dedicated subdirectory for raw tool outputs
     raw_outputs_dir = os.path.join(new_results_dir, "tool_outputs")
 
     if isinstance(title, dict):
@@ -216,7 +216,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
     if TITLE_PLACEHOLDER in template:
         template = template.replace(TITLE_PLACEHOLDER, _escape_latex(clean_title))
 
-    # CRUCIAL : Création sécurisée de l'arborescence complète du dossier local
+    # CRUCIAL : Creation of the results directory and raw outputs subdirectory before PDF generation
     os.makedirs(raw_outputs_dir, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as td:
@@ -232,7 +232,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
             if not os.path.exists(generated_pdf):
                 return {"error": "pdflatex compilation failed, report.pdf not found in tmp dir"}
 
-            # Déplacement du PDF vers le dossier dynamique
+            # Moving the generated PDF to the desired output path, handling cross-device issues
             try:
                 os.replace(generated_pdf, output_path)
             except OSError as e:
@@ -242,8 +242,8 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                 else:
                     raise
 
-            # --- EXPORTATION ET COPIE DES FICHIERS TEXTES BRUTS ---
-            # A. Capturer et copier les fichiers physiques créés par Nuclei (dans /tmp ou répertoire courant)
+            # --- EXPORTATION AND COPYING OF RAW TOOL OUTPUTS ---
+            # A. Capture and copy any existing nuclei raw output files to the raw_outputs_dir
             for file_path in glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt"):
                 if os.path.exists(file_path):
                     try:
@@ -251,7 +251,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                     except Exception:
                         pass
 
-            # B. Extraire les "raw_output" en mémoire vers des fichiers .txt indépendants
+            # B. Extract and save raw outputs from each tool's results dictionary to the raw_outputs_dir
             for tool_name, data in results.items():
                 raw_content = data.get("raw_output") if isinstance(data, dict) else data
                 if raw_content:
@@ -268,12 +268,12 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
 
             info = {"pdf_path": output_path, "results_directory": new_results_dir, "raw_outputs_directory": raw_outputs_dir}
 
-            # Si l'option de copie vers le volume partagé hôte est activée
+            # If copy_to_host is True, attempt to copy the entire results directory to a host-mounted path
             if copy_to_host:
                 actual_host_dest = os.path.join(host_dest, new_results_dir) if host_dest else None
                 if actual_host_dest:
                     try:
-                        # Copie récursive de l'intégralité du dossier (PDF + sous-dossier txt)
+                        # Recursive copy of the results directory to the specified host destination, handling existing directories
                         if os.path.exists(actual_host_dest):
                             shutil.rmtree(actual_host_dest)
                         shutil.copytree(new_results_dir, actual_host_dest)
@@ -281,7 +281,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                     except Exception as e:
                         info["copy_error"] = str(e)
                 else:
-                    # Fallback sur les autres montages d'hôtes découverts dynamiquement
+                    # Fallback on host mount candidates if no specific host_dest is provided
                     for cand in _find_host_mount_candidates():
                         if not cand: continue
                         if _is_mount(cand) or os.path.exists(cand):

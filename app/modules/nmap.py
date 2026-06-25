@@ -82,11 +82,11 @@ def parse_nmap(xml_output):
     }
 
 def run_nmap(target, options=None):
-    # Création d'un fichier temporaire sécurisé pour réceptionner le flux XML de Nmap
+    # Creation of a temporary file for Nmap XML output
     fd, temp_xml_path = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
 
-    # Commande modifiée : l'output normal (texte) ira dans stdout, le XML va dans le fichier temporaire
+    # Modified command: normal output (text) will go to stdout, XML will go to the temporary file
     command = [
         "nmap",
         "-sV",
@@ -116,14 +116,14 @@ def run_nmap(target, options=None):
                 "raw_output": result.stderr
             }
 
-        # Lecture du fichier XML généré pour le parsing d'analyse interne
+        # Read and parse the XML output from the temporary file
         if os.path.exists(temp_xml_path) and os.path.getsize(temp_xml_path) > 0:
             with open(temp_xml_path, "r", encoding="utf-8", errors="replace") as f:
                 xml_content = f.read()
             
             parsed_data = parse_nmap(xml_content)
             
-            # CRUCIAL : On injecte la sortie standard TEXTE brute (et non le XML) pour le fichier d'output et le rapport
+            # CRUCIAL : We inject the raw output of the Nmap command into the parsed data for comprehensive reporting
             parsed_data["raw_output"] = result.stdout
             return parsed_data
         else:
@@ -138,7 +138,7 @@ def run_nmap(target, options=None):
             "summary": "XML structural anomaly discovered."
         }
     finally:
-        # Nettoyage strict et systématique du fichier temporaire
+        # Strict cleanup of the temporary XML file to prevent clutter and potential data leaks
         if os.path.exists(temp_xml_path):
             os.remove(temp_xml_path)
 

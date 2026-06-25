@@ -36,11 +36,11 @@ def parse_gobuster(output):
     severity = "low"
     for item in findings:
         item_lower = item.lower()
-        # Fichiers sensibles ou secrets exposés -> Critical
+        # Sensitive files or directories -> Critical
         if any(keyword in item_lower for keyword in [".env", ".git", "config", "backup", "secret", "passwd", "shadow"]):
             severity = "critical"
             break  
-        # Dossiers d'administration ou d'authentification -> High
+        # Admin panels or login pages -> High
         elif any(keyword in item_lower for keyword in ["admin", "login", "wp-admin", "cpanel", "dashboard"]):
             if severity != "critical":
                 severity = "high"
@@ -58,7 +58,7 @@ def run_gobuster(target, wordlist="/usr/share/wordlists/dirbuster/directory-list
     if not wordlist:
         wordlist = "/usr/share/wordlists/dirbuster/directory-list-1.0.txt"
 
-    # ajoute http:// automatiquement
+    # adds http:// automatically if not present, as gobuster requires a full URL
     if not target.startswith("http"):
         target = f"http://{target}"
 

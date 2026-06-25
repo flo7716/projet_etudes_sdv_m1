@@ -257,7 +257,7 @@ def display_tools_info():
 
 def main():
     """Main interactive CLI loop"""
-    # Enregistrement de l'intercepteur de signal pour Ctrl+Z (uniquement valide sur Linux/Unix)
+    # Signal handling for Ctrl+Z (SIGTSTP) to prevent terminal suspension on Unix-like systems
     if sys.platform != "win32":
         signal.signal(signal.SIGTSTP, handle_sigtstp)
 

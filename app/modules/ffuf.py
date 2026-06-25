@@ -30,14 +30,14 @@ def parse_ffuf(json_path: str):
                 
             input_word = str(input_word).strip()
             
-            # Filtrage explicite des lignes de commentaires des dictionnaires de SecLists
+            # explicit filtering of noise or empty entries
             if input_word.startswith("#") or not input_word:
                 continue
                 
             status = res.get("status", 0)
             size = res.get("length", 0) or res.get("size", 0)
             
-            # Formatage propre identique à Gobuster pour l'affichage final
+            # properly format the findings entry with HTTP status and size
             entry = f"/{input_word} - HTTP {status} ({size} bytes)"
             findings.append(entry)
             
@@ -50,7 +50,7 @@ def parse_ffuf(json_path: str):
 
 
 def run_ffuf(target, wordlist, options=""):
-    # 1. Nettoyage et normalisation de la target par défaut
+    # 1. Clean and normalize the target URL for FFUF
     target = target.strip("'\"")
     if "FUZZ" not in target:
         if not target.startswith(("http://", "https://")):
@@ -58,30 +58,29 @@ def run_ffuf(target, wordlist, options=""):
         else:
             target = f"{target.rstrip('/')}/FUZZ"
 
-    # Création du fichier temporaire pour stocker le JSON de FFUF
+    # 2. Creation of a temporary file for FFUF JSON output
     fd, temp_json_path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
 
-    # 2. Construction intelligente et sécurisée des arguments
-    # On isole les options supplémentaires de l'utilisateur
+    # 2. Smart and secure construction of arguments
+    # We isolate the additional options provided by the user
     user_opts = []
     if options:
-        # On découpe en préservant les blocs mais en nettoyant les quotes malencontreuses
+        # We cut the options string into a list, stripping quotes to avoid shell injection issues
         user_opts = [opt.strip("'\"") for opt in options.split() if opt.strip()]
 
-    # Si l'utilisateur a configuré son propre "-u <url>" dans les options additionnelles,
-    # on extrait cette URL pour écraser la target par défaut et on retire le doublon.
+    # If the user has specified a target URL with -u, we extract it to override the default target and remove the duplicate.
     if "-u" in user_opts:
         try:
             idx = user_opts.index("-u")
             if idx + 1 < len(user_opts):
                 target = user_opts[idx + 1]
-                # On supprime le "-u" et sa valeur de la liste des options utilisateur
+                # We remove the -u and its argument from the user options to avoid duplication
                 del user_opts[idx:idx + 2]
         except Exception:
             pass
 
-    # Base de la commande d'exécution
+    # Execution of the FFUF command with the constructed arguments
     command = [
         "ffuf",
         "-u", target,
@@ -92,29 +91,30 @@ def run_ffuf(target, wordlist, options=""):
         "-of", "json"
     ]
     
-    # On ajoute les options utilisateur nettoyées
+    # We append the user-provided options to the command, ensuring they are properly sanitized and do not introduce shell injection vulnerabilities
     command.extend(user_opts)
 
     try:
-        # Exécution du binaire ffuf sans lever d'exception bloquante
+        # Ffuf is executed in a subprocess, capturing both stdout and stderr for comprehensive reporting
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         
-        # Extraction des données structurées depuis le JSON temporaire
+        # Extraction of structured findings and raw output from the FFUF JSON file
         findings, parsed_raw = parse_ffuf(temp_json_path)
         
-        # Si le fichier JSON est inexistant ou vide (erreur de syntaxe globale de ffuf),
-        # on utilise le stdout/stderr réel pour alimenter le rapport d'erreur technique
+        # If the JSON parsing fails or yields no findings, we fall back to using the actual stdout/stderr for error reporting
+        # This ensures that even if FFUF fails to produce a valid JSON output, we still capture the relevant information for debugging and reporting purposes
+        # We use the actual stdout/stderr for error reporting if the JSON parsing fails or yields no findings
         if not findings and (not parsed_raw or "No JSON output file found" in parsed_raw):
             raw_output = f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
         else:
             raw_output = parsed_raw
             
     finally:
-        # Nettoyage systématique du fichier d'échange éphémère
+        # Systematic cleanup of the temporary JSON file to prevent clutter and potential data leaks
         if os.path.exists(temp_json_path):
             os.remove(temp_json_path)
 
-    # 3. Calcul de la sévérité globale
+    # 3. Severity assessment based on the findings, with a focus on sensitive files and administrative endpoints
     severity = "low"
     for item in findings:
         item_lower = item.lower()
@@ -125,7 +125,7 @@ def run_ffuf(target, wordlist, options=""):
             if severity != "critical":
                 severity = "high"
 
-    # Objet de retour normalisé (avec les clés attendues par tools_renderer.py)
+    # Returning a structured report with all relevant information, including the findings, severity, and raw output for further analysis or reporting
     return {
         "tool": "ffuf",
         "target": target,
