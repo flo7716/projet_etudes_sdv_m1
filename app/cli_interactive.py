@@ -158,7 +158,7 @@ def run_pipeline_interactive():
         
         console.print(f"\n[yellow]Running automated pipeline with modules: {', '.join(tests)}[/yellow]")
         results = {}
-        
+        # Sequential execution of selected tests
         for test in tests:
             try:
                 console.print(f"\n[bold blue]▶ Running {test.upper()}...[/bold blue]")
@@ -223,7 +223,7 @@ def run_pipeline_interactive():
         console.print("\n[yellow]⚠ Automated Pipeline execution aborted. Returning to main menu...[/yellow]")
 
 
-def display_tools_info():
+def display_tools_info(): #Shows information about available tools and execution modes
     """Display information about available tools and execution modes"""
     console.print("\n[bold cyan]=== AVAILABLE TOOLS MATRIX ===[/bold cyan]")
     
@@ -255,7 +255,7 @@ def display_tools_info():
     console.print(table)
 
 
-def main():
+def main(): #main interactive CLI loop
     """Main interactive CLI loop"""
     # Signal handling for Ctrl+Z (SIGTSTP) to prevent terminal suspension on Unix-like systems
     if sys.platform != "win32":
