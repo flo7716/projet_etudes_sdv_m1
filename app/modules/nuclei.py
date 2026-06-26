@@ -28,7 +28,7 @@ def parse_nuclei(output_file: str):
     severity_order = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
     max_severity = "info"
     
-    # REGEX : Captures the severity level from Nuclei output lines, e.g., "[INF]", "[LOW]", "[MEDIUM]", "[HIGH]", "[CRITICAL]" (3rd group)
+    # REGEX: Captures the severity level from Nuclei output lines, e.g., "[INF]", "[LOW]", "[MEDIUM]", "[HIGH]", "[CRITICAL]" (3rd group)
     nuclei_pattern = re.compile(r"^\[[^\]]+\]\s+\[[^\]]+\]\s+\[([^\]]+)\]")
 
     for line in lines:
@@ -95,10 +95,28 @@ def run_nuclei(target: str, options: str = ""):
                 "summary": "Identified 0 alert exposures due to core engine runtime failure."
             }
 
-        return parse_nuclei(temp_output_path)
+        # Parse findings from the temp file
+        scan_results = parse_nuclei(temp_output_path)
+
+        # Pipeline specific: Ensure raw output is saved inside the 'output/' directory only, not leaked outside
+        output_dir = "output"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # Generate a clean, structured filename for the persistent raw output inside the output directory
+        safe_target = re.sub(r'[^a-zA-Z0-9]', '_', target.replace("http://", "").replace("https://", ""))
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        persistent_output_path = os.path.join(output_dir, f"nuclei_{safe_target}_{timestamp}.txt")
+
+        # Write raw output directly into the controlled output folder
+        if scan_results["raw_output"]:
+            with open(persistent_output_path, "w", encoding="utf-8") as f:
+                f.write(scan_results["raw_output"])
+
+        return scan_results
 
     finally:
-        # Ensure that the temporary output file is removed after processing to avoid clutter and potential data leaks
+        # Ensure that the initial temporary output file is removed after processing to avoid clutter and potential data leaks
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
 
