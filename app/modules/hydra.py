@@ -3,6 +3,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from datetime import datetime
 from app.modules.interactive import prompt_text
 
@@ -47,8 +48,32 @@ def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", 
     if options:
         command.extend(shlex.split(options))
 
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
-    output = result.stdout or ""
+    # We build an in-memory storage buffer to log entire console streams
+    output_chunks = []
+
+    # Initialize subprocess pipeline tracking using Popen context manager for live updates
+    with subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+        bufsize=1
+    ) as proc:
+        
+        # Read the real-time runtime stream line by line from the output channel
+        if proc.stdout:
+            for line in proc.stdout:
+                output_chunks.append(line)
+                # Print directly to stdout and flush immediately to display progress to the user
+                sys.stdout.write(line)
+                sys.stdout.flush()
+
+        # Wait for the external processing loop to formally terminate and return exit code
+        proc.wait()
+
+    # Reassemble historical memory chunks into a single raw text payload string
+    output = "".join(output_chunks)
     scan_results = parse_hydra(output)
 
     # Sanitize hostname/URL for filesystem storage directory creation
