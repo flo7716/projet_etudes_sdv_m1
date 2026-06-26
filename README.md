@@ -250,7 +250,8 @@ python -m app.cli_interactive
 ./run_cli.sh
 ```
 ## Windows (PowerShell)
-```powershell --ExecutionPolicy Bypass -File run_cli.ps1
+```powershell 
+--ExecutionPolicy Bypass -File run_cli.ps1
 ```
 
 ### 2. Selecting a Tool
