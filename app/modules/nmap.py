@@ -117,7 +117,8 @@ def run_nmap(target, options=""):
             
             # Sanitize hostname for filesystem storage directory creation
             clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp.
+            timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP", datetime.now().strftime("%Y%m%d_%H%M%S"))
             
             # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
             output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")

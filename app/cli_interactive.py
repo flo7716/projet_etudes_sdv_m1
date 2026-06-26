@@ -134,6 +134,7 @@ def run_pipeline_interactive():
             console.print(f"[green]Options for {test.upper()} configured successfully[/green]")
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
         default_filename = f"report_{timestamp}.pdf"
         output_file = questionary.text(
             "Output PDF filename:",
