@@ -57,7 +57,7 @@ python -m app.cli_interactive
 
 ## Available Tools
 
-### 🔍 NMAP - Network Scanning
+### 🔍 NMAP - Network Scanning (Pipeline & Standalone)
 - Performs network reconnaissance
 - Port scanning and service detection
 - OS fingerprinting
@@ -68,7 +68,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🔓 HYDRA - Brute-Force
+### 🔓 HYDRA - Brute-Force (Standalone only)
 - Password brute-forcing against services
 - Supports multiple protocols
 
@@ -80,7 +80,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🔑 JOHN - Password Cracking
+### 🔑 JOHN - Password Cracking (Standalone only)
 - Cracks hashes from password files
 - Supports multiple hash formats
 
@@ -91,7 +91,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🕷️ NIKTO - Web Scanning
+### 🕷️ NIKTO - Web Scanning (Pipeline & Standalone)
 - Web server vulnerability scanning
 - CGI scanning and outdated software detection
 
@@ -101,7 +101,7 @@ python -m app.cli_interactive
 
 ---
 
-### 📁 GOBUSTER - Directory Scanning
+### 📁 GOBUSTER - Directory Scanning (Pipeline & Standalone)
 - Directory and file brute-forcing
 - Website structure mapping
 
@@ -112,7 +112,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🗄️ SQLMAP - SQL Injection
+### 🗄️ SQLMAP - SQL Injection (Pipeline & Standalone)
 - SQL injection detection and exploitation
 - Database dumping
 
@@ -122,7 +122,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🛜  AIRCRACK-NG - Wireless testing
+### 🛜  AIRCRACK-NG - Wireless testing (Standalone only)
 - Wireless capture analysis and cracking support
 - Useful for auditing captured handshakes
 
@@ -132,7 +132,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🧪 NUCLEI - Vulnerability scanning
+### 🧪 NUCLEI - Vulnerability scanning (Pipeline & Standalone)
 - Fast, template-based vulnerability discovery
 - Great for web and infrastructure checks
 
@@ -142,7 +142,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🛡️ MSFVENOM - Payload generation
+### 🛡️ MSFVENOM - Payload generation (Standalone only)
 - Generates payloads for various platforms
 - Supports multiple encoding techniques
 
@@ -154,7 +154,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🔎 SEARCHSPLOIT - Vulnerability Search
+### 🔎 SEARCHSPLOIT - Vulnerability Search (Standalone only)
 - Search for exploits in the Exploit Database
 - Quick access to exploit information
 
@@ -164,7 +164,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🕷️ FFUF - Web Fuzzing
+### 🕷️ FFUF - Web Fuzzing (Pipeline & Standalone)
 - Fast web fuzzer for directory and file discovery
 - Customizable request patterns and response matching
 
@@ -175,7 +175,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🛡️ CLAMSCAN - Antivirus Scanning
+### 🛡️ CLAMSCAN - Antivirus Scanning (Standalone only)
 - Scans files for malware and viruses
 - Supports multiple file formats
 
@@ -185,7 +185,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🔓 SSLYZE - SSL/TLS scanning
+### 🔓 SSLYZE - SSL/TLS scanning (Pipeline & Standalone)
 - Analyzes SSL/TLS configurations of servers
 - Checks for vulnerabilities and misconfigurations
 
@@ -195,7 +195,7 @@ python -m app.cli_interactive
 
 ---
 
-### 🦈 TSHARK - Packet inspection
+### 🦈 TSHARK - Packet inspection (Standalone only)
 - Network packet capture and analysis
 - Supports various protocols and filters
 **Parameters:**
