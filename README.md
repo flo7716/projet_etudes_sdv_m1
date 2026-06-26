@@ -268,7 +268,10 @@ Follow the prompts and enter required information
 ### 4. Execution
 The tool runs and displays results in real-time
 
-### 5. Continue or Exit
+### 5. Raw Output (except for MSFVENOM and SEARCHSPLOIT)
+You can find the raw output in the `results_{hostname/file}_{timestamp}/tool_output` directory for further analysis. Pipeline results are also saved in a PDF report if you selected that option.
+
+### 6. Continue or Exit
 Choose to run another tool or exit
 
 ## Comparison: Old vs New
