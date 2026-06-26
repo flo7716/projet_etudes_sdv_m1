@@ -245,8 +245,12 @@ python -m app.cli_interactive
 ## Workflow Example
 
 ### 1. Launching the CLI
+## Linux/MacOS
 ```bash
 ./run_cli.sh
+```
+## Windows (PowerShell)
+```powershell --ExecutionPolicy Bypass -File run_cli.ps1
 ```
 
 ### 2. Selecting a Tool
@@ -289,7 +293,7 @@ docker-compose up -d
 ```
 
 ### "Permission denied" on run_cli.sh
-Make the script executable:
+Make the script executable (Linux/MacOS):
 ```bash
 chmod +x run_cli.sh
 ```
