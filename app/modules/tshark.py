@@ -1,4 +1,5 @@
-import re
+import re, os, subprocess
+from datetime import datetime
 import subprocess
 from collections import Counter
 
@@ -66,8 +67,10 @@ def parse_tshark(output: str):
         "packet_count": total_lines,
         "findings_count": len(findings),
         "findings": findings,
-        "raw_output": output[:3000],
+        "raw_output": output,
     }
+
+
 
 
 def run_tshark(target, options=""):
@@ -76,7 +79,26 @@ def run_tshark(target, options=""):
         command.extend(options.split())
 
     result = subprocess.run(command, capture_output=True, text=True)
-    return parse_tshark(result.stdout)
+    scan_results = parse_tshark(result.stdout)
+
+    # Sanitize hostname/URL for filesystem storage directory creation
+    clean_filename= re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+    # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp and export it.
+    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
+    
+    # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+    output_dir = os.path.join(f"results_{clean_filename}_{timestamp}", "tool_outputs")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    persistent_path = os.path.join(output_dir, "tshark_standalone_raw_output.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(scan_results["raw_output"])
+
+    return scan_results
 
 
 def run_tshark_interactive():
