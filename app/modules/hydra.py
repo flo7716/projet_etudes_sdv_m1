@@ -51,12 +51,20 @@ def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", 
     output = result.stdout or ""
     scan_results = parse_hydra(output)
 
-    # Confinement strict check
-    output_dir = "output"
+    # Sanitize hostname/URL for filesystem storage directory creation
+    clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").replace("ftp://", "").replace("ssh://", "").split('/')[0])
+    # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp and export it.
+    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
+    
+    # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+    output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    persistent_path = os.path.join(output_dir, f"hydra_{timestamp}.txt")
+        
+    persistent_path = os.path.join(output_dir, "hydra_standalone_raw_output.txt")
     with open(persistent_path, "w", encoding="utf-8") as f:
         f.write(output)
 

@@ -59,14 +59,22 @@ def run_john(hash_file, wordlist="/usr/share/john/password.lst", options="", tar
     
     scan_results = parse_john(combined_output)
 
-    # File pipeline confinement
-    output_dir = "output"
+    # Sanitize filename for filesystem storage directory creation
+    clean_filename = os.path.basename(hash_file).replace(" ", "_")
+    # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp and export it.
+    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
+    
+    # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+    output_dir = os.path.join(f"results_{clean_filename}_{timestamp}", "tool_outputs")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    persistent_path = os.path.join(output_dir, f"john_{timestamp}.txt")
+        
+    persistent_path = os.path.join(output_dir, "john_standalone_raw_output.txt")
     with open(persistent_path, "w", encoding="utf-8") as f:
-        f.write(combined_output)
+        f.write(output)
 
     return scan_results
 
