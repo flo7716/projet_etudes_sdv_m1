@@ -315,7 +315,7 @@ Choose whichever fits your workflow!
 2. **Save Output:** Redirect output to files for record-keeping
 3. **Defaults:** Most fields have sensible defaults - just press Enter to use them
 4. **Multiple Runs:** You can run multiple tools in one session without restarting
-5. **Quick Exit:** Press Ctrl+C anytime to exit (changes are saved)
+5. **Quick Exit:** Press Ctrl+C anytime to exit or return to main menu
 
 ## Advanced Usage
 
@@ -334,9 +334,11 @@ For tools with "Additional options" fields, enter raw tool arguments:
 ### Pipeline with Selected Tests
 Create focused penetration testing workflows:
 1. Select PIPELINE
-2. Choose only relevant tests (e.g., just NMAP + NIKTO)
-3. Specify target
-4. Get targeted PDF report
+2. Specify target
+3. Choose only relevant tests (e.g., just NMAP + NIKTO)
+4. Specify tests parameters
+5. Specify output PDF filename and mount point (if you want to get report into your computer)
+6. Get targeted PDF report
 
 ## Support
 
