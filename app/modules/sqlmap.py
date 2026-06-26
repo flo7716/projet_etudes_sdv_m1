@@ -3,158 +3,35 @@ import os
 import re
 import shlex
 import subprocess
-import sys
-
+from datetime import datetime
 from app.modules.interactive import prompt_text
 
-
-def parse_sqlmap(output):
-    """Parse l'output brut de la console sqlmap."""
+def parse_sqlmap(output: str):
     findings = []
     severity = "low"
     
-    # 1. Vulnerability detection based on sqlmap output
     if "is vulnerable" in output or "confirming SQL injection" in output or "sqlmap identified the following injection point(s)" in output:
         findings.append("SQL Injection vulnerability detected and confirmed.")
         severity = "critical"
     
-    # 2. Data exfiltration detection based on common patterns in sqlmap output
     db_matches = re.findall(r"Database:\s+([^\s]+)", output)
     if db_matches:
         for db in set(db_matches):
-            findings.append(f"Exposed Database: {db}")
+            findings.append(f"Exposed Database Schema Target: {db}")
         severity = "critical"
         
     return {
         "output": output,
-        "raw_output": output,  # Important addition to keep the raw output for further analysis
+        "raw_output": output,
         "findings": findings,
         "severity": severity,
         "summary": "SQLmap injection testing completed." if not findings else "SQLmap confirmed critical SQL Injection."
     }
 
-
-def _extract_sqlmap_log_dir(output: str):
-    match = re.search(r"logged to text files under ['\"]([^'\"]+)['\"]", output, re.IGNORECASE)
-    if match:
-        return match.group(1)
-    return None
-
-
-def _read_sqlmap_log_files(log_dir: str):
-    if not log_dir or not os.path.isdir(log_dir):
-        return []
-
-    TEXT_EXTENSIONS = {".log", ".txt", ".csv", ".json", ".xml", ".html"}
-    log_files = []
-    for root, _, files in os.walk(log_dir):
-        for name in sorted(files):
-            file_path = os.path.join(root, name)
-            ext = os.path.splitext(name)[1].lower()
-            if ext not in TEXT_EXTENSIONS:
-                continue
-            if os.path.isfile(file_path):
-                try:
-                    with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
-                        log_files.append({
-                            "path": file_path,
-                            "name": os.path.relpath(file_path, log_dir),
-                            "content": handle.read(),
-                        })
-                except OSError:
-                    continue
-    return log_files
-
-
-def _attach_log_files(result: dict) -> dict:
-    """
-    Analyse les logs de dump (CSV/TXT) générés par SQLmap sur le disque
-    et enrichit dynamiquement la section 'findings' pour le rapport PDF.
-    """
-    log_dir = _extract_sqlmap_log_dir(result.get("output", ""))
-    if log_dir:
-        result["log_dir"] = log_dir
-        result["log_files"] = _read_sqlmap_log_files(log_dir)
-        
-        log_text = []
-        for entry in result["log_files"]:
-            log_text.append(f"=== {entry['name']} ===\n{entry['content']}\n")
-            
-            # --- Dumped data detection ---
-            if "dump" in entry["name"].lower() or entry["name"].endswith(".csv"):
-                lines = [l for l in entry["content"].splitlines() if l.strip()]
-                record_count = max(0, len(lines) - 1)
-                
-                result["findings"].append(
-                    f"Data Exfiltration: Extracted table data '{entry['name']}' containing {record_count} records."
-                )
-                if "password" in entry["content"].lower() or "passwd" in entry["content"].lower():
-                    result["findings"].append(
-                        f"Critical Discovery: Plaintext or hashed credentials found inside extracted target logs."
-                    )
-            
-            elif "table" in entry["name"].lower():
-                result["findings"].append(f"Database Structure Harvested: See log file '{entry['name']}'.")
-
-        result["log_summary"] = "\n".join(log_text).strip()
-        
-        # make sure to include the log summary in the raw output for reporting
-        if result["log_summary"]:
-            result["raw_output"] = f"{result['output']}\n\n=== EXFILTRATED DATA LOGS ===\n{result['log_summary']}"
-        
-        # make sure to include Data Exfiltration findings in the severity assessment
-        if any("Data Exfiltration" in f for f in result["findings"]):
-            result["severity"] = "critical"
-            
-    return result
-
-
-def run_sqlmap(target, options="", interactive=False):
-    has_explicit_url = "-u " in options or "--url" in options
-    
-    if has_explicit_url:
-        command = ["sqlmap"]
-    else:
-        command = ["sqlmap", "-u", target]
-
+def run_sqlmap(target: str, options: str = ""):
+    command = ["sqlmap", "-u", target]
     if options:
-        try:
-            command.extend(shlex.split(options))
-        except ValueError:
-            command.extend(options.split())
-
-    if interactive:
-        if "--batch" in command:
-            command.remove("--batch")
-            
-        output_chunks = []
-        try:
-            proc = subprocess.Popen(
-                command,
-                stdin=sys.stdin,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=0,
-            )
-
-            if proc.stdout is None:
-                raise RuntimeError("Failed to capture sqlmap process stdout")
-
-            while True:
-                char = proc.stdout.read(1)
-                if not char:
-                    break
-                sys.stdout.write(char)
-                sys.stdout.flush()
-                output_chunks.append(char)
-
-            proc.wait()
-        except KeyboardInterrupt:
-            output_chunks.append("\n[INFO] sqlmap session interrupted by the user.\n")
-
-        parsed = parse_sqlmap("".join(output_chunks))
-        return _attach_log_files(parsed)
+        command.extend(shlex.split(options))
 
     if "--batch" not in command:
         command.append("--batch")
@@ -180,9 +57,22 @@ def run_sqlmap(target, options="", interactive=False):
     except Exception as exc:
         output = f"[ERROR] Execution failed: {exc}\n"
 
-    parsed = parse_sqlmap(output)
-    return _attach_log_files(parsed)
+    scan_results = parse_sqlmap(output)
 
+    # Sanitize target URL for filesystem storage directory creation
+    clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+    output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_output")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    persistent_path = os.path.join(output_dir, "sqlmap.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(scan_results["raw_output"])
+
+    return scan_results
 
 def run_sqlmap_interactive():
     target = prompt_text(
@@ -193,5 +83,5 @@ def run_sqlmap_interactive():
         "Additional sqlmap options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning interactive sqlmap on {target}...")
-    return run_sqlmap(target, options, interactive=True)
+    print(f"\n▶ Starting SQLmap database parameter automated assessment on {target}...")
+    return run_sqlmap(target, options)

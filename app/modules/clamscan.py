@@ -1,21 +1,21 @@
+# app/modules/clamscan.py
+import os
 import re
 import subprocess
-
+from datetime import datetime
 from app.modules.interactive import prompt_text
-
 
 def parse_clamscan(output: str):
     findings = []
-    summary = {}
+    summary_data = {}
 
     for line in output.splitlines():
         line = line.strip()
         if not line:
             continue
 
-        # Infected file lines: "path/to/file: Eicar-Test-Signature FOUND"
         if "FOUND" in line:
-            m = re.match(r"^(.+):\s+(.+)\s+FOUND$", line)
+            m = re.match(r"^(.+):\\s+(.+)\\s+FOUND$", line)
             if m:
                 findings.append(f"INFECTED: {m.group(1)} [{m.group(2)}]")
             else:
@@ -26,36 +26,43 @@ def parse_clamscan(output: str):
             findings.append(f"ERROR: {line}")
             continue
 
-        # Summary section lines e.g. "Infected files: 0"
-        m = re.match(r"^(.+?):\s+(\d+)$", line)
+        m = re.match(r"^(.+?):\\s+(\\d+)$", line)
         if m:
-            summary[m.group(1).strip()] = int(m.group(2))
+            summary_data[m.group(1).strip()] = int(m.group(2))
 
-    infected_count = summary.get("Infected files", len(findings))
-    scanned_count = summary.get("Scanned files", None)
+    infected_count = summary_data.get("Infected files", len([f for f in findings if "INFECTED" in f]))
+    severity = "critical" if infected_count > 0 else "low"
 
     if not findings:
-        findings.append(
-            f"No threats detected."
-            + (f" ({scanned_count} file(s) scanned)" if scanned_count is not None else "")
-        )
+        findings.append(f"No threats detected. ({summary_data.get('Scanned files', 0)} files scanned)")
 
     return {
-        "infected_count": infected_count,
-        "scanned_count": scanned_count,
+        "tool": "clamscan",
         "findings": findings,
-        "summary": summary,
+        "severity": severity,
+        "summary": f"Antivirus file compliance check completed. Identified {infected_count} active malware threat(s).",
+        "raw_output": output,
     }
-
 
 def run_clamscan(target, options=""):
     command = ["clamscan", target]
     if options:
         command.extend(options.split())
 
-    result = subprocess.run(command, capture_output=True, text=True)
-    return parse_clamscan(result.stdout)
+    result = subprocess.run(command, capture_output=True, text=True, errors="replace")
+    output = "\n".join(filter(None, [result.stdout, result.stderr]))
+    scan_results = parse_clamscan(output)
 
+    # Confinement to 'output/' folder
+    output_dir = "output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    persistent_path = os.path.join(output_dir, f"clamscan_{timestamp}.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(output)
+
+    return scan_results
 
 def run_clamscan_interactive():
     target = prompt_text(
@@ -66,4 +73,5 @@ def run_clamscan_interactive():
         "Additional clamscan options (leave empty for defaults):",
         default="",
     )
+    print(f"\n▶ Starting ClamAV compliance scan on {target}...")
     return run_clamscan(target, options)

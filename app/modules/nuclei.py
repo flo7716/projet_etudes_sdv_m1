@@ -5,9 +5,7 @@ import shlex
 import subprocess
 import tempfile
 from datetime import datetime
-
 from app.modules.interactive import prompt_text
-
 
 def parse_nuclei(output_file: str):
     if not os.path.exists(output_file):
@@ -28,11 +26,10 @@ def parse_nuclei(output_file: str):
     severity_order = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
     max_severity = "info"
     
-    # REGEX: Captures the severity level from Nuclei output lines, e.g., "[INF]", "[LOW]", "[MEDIUM]", "[HIGH]", "[CRITICAL]" (3rd group)
+    # REGEX: Captures severity level from Nuclei output lines e.g. [info], [low], [medium]
     nuclei_pattern = re.compile(r"^\[[^\]]+\]\s+\[[^\]]+\]\s+\[([^\]]+)\]")
 
     for line in lines:
-        # Ignore lines that are purely informational or warnings/errors without specific findings
         if line.startswith(("[INF]", "[WRN]", "[ERR]")):
             continue
             
@@ -40,86 +37,57 @@ def parse_nuclei(output_file: str):
         line_severity = "info"
         
         if match:
-            line_severity = match.group(1).lower().strip()
-            if line_severity in severity_order:
-                if severity_order[line_severity] > severity_order[max_severity]:
-                    max_severity = line_severity
-        else:
-            # Fallback if the line doesn't match the expected pattern, check for severity keywords in the line
-            line_lower = line.lower()
-            for level in ["info", "low", "medium", "high", "critical"]:
-                if f"[{level}]" in line_lower:
-                    line_severity = level
-                    if severity_order[level] > severity_order[max_severity]:
-                        max_severity = level
+            line_severity = match.group(1).lower()
+            if line_severity in severity_order and severity_order[line_severity] > severity_order[max_severity]:
+                max_severity = line_severity
+                
+        findings.append(f"[{line_severity.upper()}] {line}")
 
-        # We keep all lines that are not purely informational, even if they don't match the regex, to ensure we capture potential findings
-        findings.append(line)
-
-    if max_severity == "info":
-        max_severity = "low"
-
-    # Unified quantitative summary for the report, indicating the number of findings and the highest severity level detected
     return {
         "tool": "nuclei",
-        "findings": findings,  # Complete list of findings, including lines that may not match the regex but are relevant
+        "findings": findings,
         "raw_output": output,
         "severity": max_severity,
-        # This line provides a concise summary of the findings, indicating the total number of alert exposures identified by Nuclei
-        "summary": f"Identified {len(findings)} alert exposures."
+        "summary": f"Identified {len(findings)} technical security alert vulnerabilities."
     }
 
-
 def run_nuclei(target: str, options: str = ""):
-    # Use the tempfile module to create a temporary file for Nuclei output, ensuring that the file is unique and avoids conflicts
-    fd, temp_output_path = tempfile.mkstemp(suffix=".txt", prefix="nuclei_")
+    # Use temporary file pointer handling strategy for runtime containment
+    fd, temp_output_path = tempfile.mkstemp(suffix="_nuclei.txt")
     os.close(fd)
-    
-    command = ["nuclei", "-target", target, "-o", temp_output_path]
 
+    command = ["nuclei", "-target", target, "-output", temp_output_path]
     if options:
         command.extend(shlex.split(options))
 
     try:
-        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        fallback_output = "\n".join(filter(None, [result.stdout, result.stderr]))
-
-        if result.returncode != 0 and (not os.path.exists(temp_output_path) or os.path.getsize(temp_output_path) == 0):
-            return {
-                "tool": "nuclei",
-                "command": " ".join(command),
-                "error": fallback_output or "nuclei scan failed.",
-                "findings": [],
-                "severity": "low",
-                "raw_output": fallback_output,
-                "summary": "Identified 0 alert exposures due to core engine runtime failure."
-            }
-
-        # Parse findings from the temp file
+        subprocess.run(command, capture_output=True, text=True, errors="replace")
         scan_results = parse_nuclei(temp_output_path)
 
-        # Pipeline specific: Ensure raw output is saved inside the 'output/' directory only, not leaked outside
-        output_dir = "output"
+        # Sanitize hostname/URL for filesystem storage directory creation
+        clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+        output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_output")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Generate a clean, structured filename for the persistent raw output inside the output directory
-        safe_target = re.sub(r'[^a-zA-Z0-9]', '_', target.replace("http://", "").replace("https://", ""))
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        persistent_output_path = os.path.join(output_dir, f"nuclei_{safe_target}_{timestamp}.txt")
+        persistent_output_path = os.path.join(output_dir, "nuclei.txt")
 
-        # Write raw output directly into the controlled output folder
         if scan_results["raw_output"]:
             with open(persistent_output_path, "w", encoding="utf-8") as f:
                 f.write(scan_results["raw_output"])
+        else:
+            # Fallback placeholder write execution
+            with open(persistent_output_path, "w", encoding="utf-8") as f:
+                f.write("Nuclei execution completed. No findings captured.")
 
         return scan_results
 
     finally:
-        # Ensure that the initial temporary output file is removed after processing to avoid clutter and potential data leaks
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
-
 
 def run_nuclei_interactive():
     target = prompt_text(
@@ -130,5 +98,5 @@ def run_nuclei_interactive():
         "Additional nuclei options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning nuclei on {target}...")
+    print(f"\n▶ Starting Nuclei context-driven vulnerability component scan on {target}...")
     return run_nuclei(target, options)

@@ -1,8 +1,11 @@
+# app/modules/nikto.py
+import os
+import re
 import subprocess
-import xml.etree.ElementTree as ET
+from datetime import datetime
 from app.modules.interactive import prompt_text
 
-def parse_nikto(output):
+def parse_nikto(output: str):
     results = []
     severity = "low"
 
@@ -36,24 +39,29 @@ def parse_nikto(output):
         "raw_output": output
     }
 
-def run_nikto(target, options=""):
-
-    command = [
-        "nikto",
-        "-h", target,
-    ]
+def run_nikto(target: str, options: str = ""):
+    command = ["nikto", "-h", target]
     if options:
         command.extend(options.split())
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True
-    )
-
+    result = subprocess.run(command, capture_output=True, text=True, errors="replace")
     output = "\n".join(filter(None, [result.stdout, result.stderr]))
-    return parse_nikto(output)
+    scan_results = parse_nikto(output)
 
+    # Sanitize hostname/URL for filesystem storage directory creation
+    clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+    output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    persistent_path = os.path.join(output_dir, "nikto_raw_output.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(output)
+
+    return scan_results
 
 def run_nikto_interactive():
     target = prompt_text(
@@ -64,5 +72,5 @@ def run_nikto_interactive():
         "Additional nikto options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning nikto on {target}...")
+    print(f"\n▶ Starting Nikto web security configuration scanner on {target}...")
     return run_nikto(target, options)

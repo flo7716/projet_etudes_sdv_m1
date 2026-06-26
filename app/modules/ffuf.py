@@ -1,17 +1,13 @@
+# app/modules/ffuf.py
 import json
 import os
 import re
 import subprocess
 import tempfile
-
+from datetime import datetime
 from app.modules.interactive import prompt_text
 
-
 def parse_ffuf(json_path: str):
-    """
-    Parse le fichier de sortie JSON natif de FFUF.
-    Garantit l'absence totale d'erreurs d'expressions régulières ou de pollution textuelle.
-    """
     findings = []
     raw_content = ""
     
@@ -29,114 +25,72 @@ def parse_ffuf(json_path: str):
                 continue
                 
             input_word = str(input_word).strip()
-            
-            # explicit filtering of noise or empty entries
             if input_word.startswith("#") or not input_word:
                 continue
                 
             status = res.get("status", 0)
             size = res.get("length", 0) or res.get("size", 0)
             
-            # properly format the findings entry with HTTP status and size
             entry = f"/{input_word} - HTTP {status} ({size} bytes)"
             findings.append(entry)
             
         raw_content = json.dumps(data, indent=2)
         
     except Exception as e:
-        raw_content = f"Error parsing JSON file: {str(e)}"
+        raw_content = f"Failed to parse internal FFUF payload definitions: {str(e)}"
         
     return findings, raw_content
 
-
-def run_ffuf(target, wordlist, options=""):
-    # 1. Clean and normalize the target URL for FFUF
-    target = target.strip("'\"")
-    if "FUZZ" not in target:
-        if not target.startswith(("http://", "https://")):
-            target = f"http://{target.rstrip('/')}/FUZZ"
-        else:
-            target = f"{target.rstrip('/')}/FUZZ"
-
-    # 2. Creation of a temporary file for FFUF JSON output
-    fd, temp_json_path = tempfile.mkstemp(suffix=".json")
+def run_ffuf(target: str, wordlist: str, options: str = ""):
+    # Use standard operating system unique temporal file token generators
+    fd, temp_json_path = tempfile.mkstemp(suffix="_ffuf.json")
     os.close(fd)
 
-    # 2. Smart and secure construction of arguments
-    # We isolate the additional options provided by the user
-    user_opts = []
+    command = ["ffuf", "-u", target, "-w", wordlist, "-o", temp_json_path, "-of", "json"]
     if options:
-        # We cut the options string into a list, stripping quotes to avoid shell injection issues
-        user_opts = [opt.strip("'\"") for opt in options.split() if opt.strip()]
-
-    # If the user has specified a target URL with -u, we extract it to override the default target and remove the duplicate.
-    if "-u" in user_opts:
-        try:
-            idx = user_opts.index("-u")
-            if idx + 1 < len(user_opts):
-                target = user_opts[idx + 1]
-                # We remove the -u and its argument from the user options to avoid duplication
-                del user_opts[idx:idx + 2]
-        except Exception:
-            pass
-
-    # Execution of the FFUF command with the constructed arguments
-    command = [
-        "ffuf",
-        "-u", target,
-        "-w", wordlist,
-        "-t", "50",
-        "-mc", "200,204,301,302,307,401,403",
-        "-o", temp_json_path,
-        "-of", "json"
-    ]
-    
-    # We append the user-provided options to the command, ensuring they are properly sanitized and do not introduce shell injection vulnerabilities
-    command.extend(user_opts)
+        command.extend(options.split())
 
     try:
-        # Ffuf is executed in a subprocess, capturing both stdout and stderr for comprehensive reporting
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        subprocess.run(command, capture_output=True, text=True, errors="replace")
+        findings, raw_output = parse_ffuf(temp_json_path)
+
+        severity = "low"
+        for item in findings:
+            item_lower = item.lower()
+            if any(keyword in item_lower for keyword in [".env", ".git", "config", "backup", "secret", "db.php"]):
+                severity = "critical"
+                break
+            elif any(keyword in item_lower for keyword in ["admin", "login", "auth", "panel", "vulnerabilities"]):
+                if severity != "critical":
+                    severity = "high"
+
+        scan_results = {
+            "tool": "ffuf",
+            "target": target,
+            "findings": findings,
+            "severity": severity,
+            "summary": f"Fuzzing completed. Found {len(findings)} accessible paths/endpoints.",
+            "raw_output": raw_output
+        }
+
+        # Sanitize hostname/URL for filesystem storage directory creation
+        clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Extraction of structured findings and raw output from the FFUF JSON file
-        findings, parsed_raw = parse_ffuf(temp_json_path)
-        
-        # If the JSON parsing fails or yields no findings, we fall back to using the actual stdout/stderr for error reporting
-        # This ensures that even if FFUF fails to produce a valid JSON output, we still capture the relevant information for debugging and reporting purposes
-        # We use the actual stdout/stderr for error reporting if the JSON parsing fails or yields no findings
-        if not findings and (not parsed_raw or "No JSON output file found" in parsed_raw):
-            raw_output = f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
-        else:
-            raw_output = parsed_raw
-            
+        # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+        output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        persistent_path = os.path.join(output_dir, "ffuf_raw_output.txt")
+        with open(persistent_path, "w", encoding="utf-8") as f:
+            f.write(scan_results["raw_output"])
+
+        return scan_results
+
     finally:
-        # Systematic cleanup of the temporary JSON file to prevent clutter and potential data leaks
         if os.path.exists(temp_json_path):
             os.remove(temp_json_path)
-
-    # 3. Severity assessment based on the findings, with a focus on sensitive files and administrative endpoints
-    severity = "low"
-    for item in findings:
-        item_lower = item.lower()
-        if any(keyword in item_lower for keyword in [".env", ".git", "config", "backup", "secret", "db.php"]):
-            severity = "critical"
-            break
-        elif any(keyword in item_lower for keyword in ["admin", "login", "auth", "panel", "vulnerabilities"]):
-            if severity != "critical":
-                severity = "high"
-
-    # Returning a structured report with all relevant information, including the findings, severity, and raw output for further analysis or reporting
-    return {
-        "tool": "ffuf",
-        "target": target,
-        "findings": findings,
-        "severity": severity,
-        "summary": f"Fuzzing completed. Found {len(findings)} accessible paths/endpoints.",
-        "objective": "Enumerate web server directories, hidden resources, and sensitive path locations.",
-        "recommendations": ["Harden directory permissions, implement access-control lists (ACLs) and restrict access to administrative interfaces."],
-        "raw_output": raw_output
-    }
-
 
 def run_ffuf_interactive():
     target = prompt_text(
@@ -151,5 +105,5 @@ def run_ffuf_interactive():
         "Additional ffuf options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning ffuf on {target}...")
+    print(f"\n▶ Running FFUF automated parameter and resource fuzzing on {target}...")
     return run_ffuf(target, wordlist, options)

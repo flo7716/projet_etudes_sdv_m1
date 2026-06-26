@@ -1,9 +1,10 @@
+# app/modules/hydra.py
+import os
 import re
 import shlex
 import subprocess
-
+from datetime import datetime
 from app.modules.interactive import prompt_text
-
 
 def parse_hydra(output: str):
     findings = []
@@ -13,10 +14,8 @@ def parse_hydra(output: str):
         if not line:
             continue
 
-        # Hydra valid credential lines look like:
-        # [22][ssh] host: 192.168.1.1   login: root   password: toor
         m = re.match(
-            r"\[(?P<port>\d+)\]\[(?P<service>[^\]]+)\]\s+host:\s*(?P<host>\S+)"
+            r"\[(?P<port>\d+)\]\[(?P<service>[^\\]]+)\]\s+host:\s*(?P<host>\S+)"
             r"\s+login:\s*(?P<login>\S+)\s+password:\s*(?P<password>\S+)",
             line,
         )
@@ -28,38 +27,40 @@ def parse_hydra(output: str):
             )
             continue
 
-        # fallback: lines containing both login and password keywords
         lowered = line.lower()
         if "login" in lowered and ("pass" in lowered or "password" in lowered):
-            # skip noise lines
             if not any(skip in lowered for skip in ["[data]", "[attempt]", "[warning]", "[error]", "0 of ", "1 of "]):
                 findings.append(line)
 
+    severity = "critical" if len(findings) > 0 else "low"
+
     return {
-        "cracked_passwords_count": len(findings),
+        "tool": "hydra",
         "findings": findings,
+        "severity": severity,
+        "summary": f"Network password brute-force completed. Extracted {len(findings)} valid credential pairs.",
+        "raw_output": output,
     }
 
-
 def run_hydra(target, user="root", passlist="/usr/share/wordlists/rockyou.txt", options=""):
-    command = [
-        "hydra",
-        "-l", user,
-        "-P", passlist,
-        target,
-    ]
+    command = ["hydra", "-l", user, "-P", passlist, target]
     if options:
         command.extend(shlex.split(options))
 
-    result = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    output = result.stdout or ""
+    scan_results = parse_hydra(output)
 
-    return parse_hydra(result.stdout or "")
+    # Confinement strict check
+    output_dir = "output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    persistent_path = os.path.join(output_dir, f"hydra_{timestamp}.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(output)
 
+    return scan_results
 
 def run_hydra_interactive():
     target = prompt_text(
@@ -78,5 +79,5 @@ def run_hydra_interactive():
         "Additional hydra options (leave empty for defaults):",
         default="",
     )
-    print(f"\nRunning hydra on {target}...")
+    print(f"\n▶ Starting Hydra parallel brute-force attack on {target}...")
     return run_hydra(target, user, passlist, options)

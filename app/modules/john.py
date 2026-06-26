@@ -1,126 +1,74 @@
+# app/modules/john.py
 import os
-import shutil
+import re
 import subprocess
-import tempfile
-
+from datetime import datetime
 import questionary
-
 from app.modules.interactive import prompt_text
 
-def parse_john(output):
-
+def parse_john(output: str):
     results = []
-
     for line in output.splitlines():
         stripped = line.strip()
-
         if not stripped:
             continue
-
-        if stripped.startswith("Loaded") or stripped.startswith("No password hashes") or stripped.startswith("guesses") or stripped.startswith("0g ") or stripped.startswith("Warning:") or stripped.startswith("Press '") or stripped.startswith("Use the") or stripped.startswith("Session completed"):
+        if any(stripped.startswith(skip) for skip in ["Loaded", "No password hashes", "guesses", "0g ", "Warning:", "Press '", "Use the", "Session completed"]):
             continue
-
         results.append(stripped)
 
+    severity = "critical" if len(results) > 0 else "low"
+
     return {
-        "cracked_passwords_count": len(results),
-        "cracked_passwords": results
+        "tool": "john",
+        "findings": results,
+        "severity": severity,
+        "summary": f"Offline password cracking finished. Cracked {len(results)} crypt hashes successfully.",
+        "raw_output": output
     }
 
-
-def build_john_options(target_type, options="", archive_type=None):
-    """Build John CLI options for the selected cracking scenario."""
-    command_options = []
-
+def run_john(hash_file, wordlist="/usr/share/john/password.lst", options="", target_type="Basic hash", archive_type=None):
+    command = ["john", f"--wordlist={wordlist}"]
+    
     if target_type == "Windows hash":
-        command_options.append("--format=nt")
+        command.append("--format=nt")
     elif target_type == "/etc/shadow hash":
-        command_options.append("--format=crypt")
+        command.append("--format=crypt")
     elif target_type == "Password protected archive (zip, rar)":
-        command_options.append("--format=" + (archive_type or "zip").lower())
+        command.append(f"--format={ (archive_type or 'zip').lower() }")
     elif target_type == "SSH key":
-        command_options.append("--format=ssh")
+        command.append("--format=ssh")
     elif target_type == "Single crack":
-        command_options.append("--single")
+        command.append("--single")
 
     if options:
-        command_options.extend(options.split())
+        command.extend(options.split())
+        
+    command.append(hash_file)
 
-    return command_options
+    result = subprocess.run(command, capture_output=True, text=True, errors="replace")
+    output = "\n".join(filter(None, [result.stdout, result.stderr]))
+    
+    # John alternative check logic: call --show to get cracked hashes
+    show_cmd = ["john", "--show", hash_file]
+    if "--format=" in " ".join(command):
+        fmt = [opt for opt in command if opt.startswith("--format=")]
+        show_cmd.append(fmt[0])
+    
+    show_res = subprocess.run(show_cmd, capture_output=True, text=True, errors="replace")
+    combined_output = f"--- Runtime Exec Out ---\n{output}\n--- Show Cracked Hashes Out ---\n{show_res.stdout}"
+    
+    scan_results = parse_john(combined_output)
 
+    # File pipeline confinement
+    output_dir = "output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    persistent_path = os.path.join(output_dir, f"john_{timestamp}.txt")
+    with open(persistent_path, "w", encoding="utf-8") as f:
+        f.write(combined_output)
 
-def _tool_path(name):
-    return shutil.which(name) or name
-
-
-def _prepare_hash_file(target_type, hash_file, archive_type=None, extra_input=None):
-    """Convert a target file into a John-compatible hash file when needed."""
-    temp_file = None
-
-    if target_type == "Password protected archive (zip, rar)":
-        if archive_type == "rar":
-            tool = _tool_path("rar2john")
-        else:
-            tool = _tool_path("zip2john")
-
-        result = subprocess.run([tool, hash_file], capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr or result.stdout or f"Failed to convert {archive_type} archive")
-
-        temp_file = tempfile.NamedTemporaryFile("w", delete=False, prefix="john-", suffix=".txt")
-        temp_file.write(result.stdout)
-        temp_file.close()
-        return temp_file.name
-
-    if target_type == "SSH key":
-        ssh_tool = _tool_path("ssh2john.py")
-        if os.path.exists("/usr/share/john/ssh2john.py"):
-            ssh_tool = "/usr/share/john/ssh2john.py"
-
-        result = subprocess.run(["python3", ssh_tool, hash_file], capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr or result.stdout or "Failed to convert SSH key")
-
-        temp_file = tempfile.NamedTemporaryFile("w", delete=False, prefix="john-", suffix=".txt")
-        temp_file.write(result.stdout)
-        temp_file.close()
-        return temp_file.name
-
-    if target_type == "/etc/shadow hash":
-        if not extra_input:
-            raise RuntimeError("A /etc/passwd file is required for /etc/shadow cracking")
-
-        result = subprocess.run([_tool_path("unshadow"), extra_input, hash_file], capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr or result.stdout or "Failed to unshadow the password file")
-
-        temp_file = tempfile.NamedTemporaryFile("w", delete=False, prefix="john-", suffix=".txt")
-        temp_file.write(result.stdout)
-        temp_file.close()
-        return temp_file.name
-
-    return hash_file
-
-
-def run_john(hash_file, wordlist, options="", target_type="Basic hash", archive_type=None, extra_input=None):
-    temp_hash_file = None
-
-    try:
-        temp_hash_file = _prepare_hash_file(target_type, hash_file, archive_type=archive_type, extra_input=extra_input)
-
-        command = [
-            _tool_path("john"),
-            "--wordlist=" + wordlist,
-            temp_hash_file,
-            *build_john_options(target_type, options, archive_type=archive_type),
-        ]
-
-        result = subprocess.run(command, capture_output=True, text=True)
-        return parse_john(result.stdout + (result.stderr or ""))
-    finally:
-        if temp_hash_file and temp_hash_file != hash_file and os.path.exists(temp_hash_file):
-            os.remove(temp_hash_file)
-
+    return scan_results
 
 def run_john_interactive():
     target_type = questionary.select(
@@ -140,27 +88,15 @@ def run_john_interactive():
         raise KeyboardInterrupt("Input cancelled")
 
     hash_file = prompt_text("Enter hash file path or archive/key path:", validate=lambda x: len(x) > 0)
-
     archive_type = None
-    extra_input = None
 
     if target_type == "Password protected archive (zip, rar)":
-        archive_type = questionary.select(
-            "Archive type:",
-            choices=["zip", "rar"],
-            default="zip",
-        ).ask()
+        archive_type = questionary.select("Archive type:", choices=["zip", "rar"], default="zip").ask()
         if archive_type is None:
             raise KeyboardInterrupt("Input cancelled")
-
-    if target_type == "/etc/shadow hash":
-        extra_input = prompt_text("Path to /etc/passwd file:", validate=lambda x: len(x) > 0)
-
-    if target_type == "SSH key":
-        hash_file = prompt_text("Path to the private SSH key file:", validate=lambda x: len(x) > 0)
 
     wordlist = prompt_text("Wordlist path:", default="/usr/share/john/password.lst")
     options = prompt_text("Additional john options (leave empty for defaults):", default="")
 
-    print(f"\nRunning john for {target_type} using {hash_file}...")
-    return run_john(hash_file, wordlist, options, target_type=target_type, archive_type=archive_type, extra_input=extra_input)
+    print(f"\n▶ Starting John the Ripper offline cryptographic cracking on {target_type}...")
+    return run_john(hash_file, wordlist, options, target_type, archive_type)

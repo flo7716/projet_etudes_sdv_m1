@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 import os
 import tempfile
 import shlex
+import re
+from datetime import datetime
 from app.modules.interactive import prompt_text
 
 def parse_nmap(xml_output):
@@ -23,7 +25,7 @@ def parse_nmap(xml_output):
             if addr:
                 addresses.append(addr)
 
-        for hostname in host.findall("hostname"):
+        for hostname in host.findall(".//hostname"):
             name = hostname.get("name")
             if name:
                 hostnames.append(name)
@@ -49,24 +51,28 @@ def parse_nmap(xml_output):
 
         state = state_el.get("state")
         service_el = port.find("service")
-        service = {}
-        if service_el is not None:
-            service = {
-                "name": service_el.get("name"),
-                "product": service_el.get("product"),
-                "version": service_el.get("version"),
-                "extrainfo": service_el.get("extrainfo"),
-            }
+        service_name = service_el.get("name") if service_el is not None else "unknown"
+        service_product = service_el.get("product") if service_el is not None else ""
+        service_version = service_el.get("version") if service_el is not None else ""
 
         ports.append({
             "portid": port.get("portid"),
             "protocol": port.get("protocol"),
             "state": state,
-            "service": service,
+            "service": service_name,
+            "product": service_product,
+            "version": service_version,
         })
 
+    severity = "low"
+    findings = []
     open_ports = [p for p in ports if p["state"] == "open"]
-    findings = [f"Port {p['portid']}/{p['protocol']} is OPEN running service {p['service'].get('name', 'unknown')}" for p in open_ports]
+    
+    for p in open_ports:
+        findings.append(f"Port {p['portid']}/{p['protocol']} is OPEN ({p['service']})")
+        # Elevate threat severity calculation if remote administration entries are detected
+        if p["service"] in ["ssh", "telnet", "ftp", "rdp", "vnc", "smb"]:
+            severity = "medium"
 
     return {
         "tool": "nmap",
@@ -75,56 +81,53 @@ def parse_nmap(xml_output):
         "hostnames": hostnames,
         "scan_info": scan_info,
         "os_matches": os_matches,
-        "open_ports_count": len(open_ports),
+        "ports": ports,
         "findings": findings,
-        "severity": "medium" if len(open_ports) > 5 else "low",
-        "summary": f"Network scan discovered {len(open_ports)} exposed active network ports on the target infrastructure."
+        "severity": severity,
+        "summary": f"Scan completed. Found {len(open_ports)} open network port(s)."
     }
 
-def run_nmap(target, options=None):
-    # Creation of a temporary file for Nmap XML output
+def run_nmap(target, options=""):
+    # Generate unique absolute path secure file handle pointers
     fd, temp_xml_path = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
 
-    # Modified command: normal output (text) will go to stdout, XML will go to the temporary file
-    command = [
-        "nmap",
-        "-sV",
-        "-sC",
-        "-O",
-        "-oX", temp_xml_path
-    ]
-
+    command = ["nmap", "-oX", temp_xml_path, target]
     if options:
         command.extend(shlex.split(options))
 
-    command.append(target)
-
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
+        result = subprocess.run(command, capture_output=True, text=True, errors="replace")
+        
+        if result.returncode != 0 and not os.path.exists(temp_xml_path):
             return {
-                "error": result.stderr,
-                "findings": [f"Error during network scanning execution: {result.stderr[:100]}"],
+                "error": "Nmap execution anomaly detected",
+                "raw_output": result.stderr or result.stdout,
+                "findings": ["Process executed with non-zero exit code status descriptor."],
                 "severity": "low",
-                "summary": "Nmap failed to execute properly.",
-                "raw_output": result.stderr
+                "summary": "Execution engine fault context."
             }
 
-        # Read and parse the XML output from the temporary file
         if os.path.exists(temp_xml_path) and os.path.getsize(temp_xml_path) > 0:
             with open(temp_xml_path, "r", encoding="utf-8", errors="replace") as f:
                 xml_content = f.read()
             
             parsed_data = parse_nmap(xml_content)
+            parsed_data["raw_output"] = result.stdout if result.stdout else xml_content
             
-            # CRUCIAL : We inject the raw output of the Nmap command into the parsed data for comprehensive reporting
-            parsed_data["raw_output"] = result.stdout
+            # Sanitize hostname for filesystem storage directory creation
+            clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
+            output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+                
+            persistent_path = os.path.join(output_dir, "nmap_raw_output.txt")
+            with open(persistent_path, "w", encoding="utf-8") as f:
+                f.write(parsed_data["raw_output"])
+                
             return parsed_data
         else:
             raise ET.ParseError("XML output file is empty or missing.")
@@ -138,7 +141,6 @@ def run_nmap(target, options=None):
             "summary": "XML structural anomaly discovered."
         }
     finally:
-        # Strict cleanup of the temporary XML file to prevent clutter and potential data leaks
         if os.path.exists(temp_xml_path):
             os.remove(temp_xml_path)
 
@@ -151,4 +153,5 @@ def run_nmap_interactive():
         "Additional nmap options (leave empty for defaults):",
         default="",
     )
+    print(f"\n▶ Starting Nmap network reconnaissance scan on {target}...")
     return run_nmap(target, options)
