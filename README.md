@@ -220,26 +220,31 @@ python -m app.cli_interactive
 ## Interactive Menu Example
 
 ```
-╔════════════════════════════════════════╗
-║    PENTEST TOOLBOX - Interactive CLI   ║
-║     Security Testing Framework         ║
-╚════════════════════════════════════════╝
+╭────────────────────────────────── Welcome ───────────────────────────────────╮
+│ SWISSKNIFE                                                                   │
+│ Interactive CLI Interface                                                    │
+│ (Press Ctrl+Z, Ctrl+C or Esc to abort an operation and return to menu)       │
+╰──────────────────────────────────────────────────────────────────────────────╯
 
-? Select a tool to run:
-  → 🔍 NMAP - Network Scanning
-    🔓 HYDRA - Brute-Force
-    🔑 JOHN - Password Cracking
-    🕷️ NIKTO - Web Scanning
-    📁 GOBUSTER - Directory Scanning
-    🗄️ SQLMAP - SQL Injection
-    🛜 AIRCRACK-NG - Wireless testing
-    🧪 NUCLEI - Vulnerability scanning
-    🛡️ MSFVENOM - Payload generation
-    🔎 SEARCHSPLOIT - Vulnerability Search
-    🕷️ FFUF - Web Fuzzing
-    📊 PIPELINE - Run Full Pipeline
-    ℹ️ Information
-    ❌ Exit
+? Select an operation or tool to run: (Use arrow keys)
+ → 📊  PIPELINE     - Run Full Automated Pipeline
+   🔍  NMAP         - Network Scanning [Pipeline & Standalone]
+   🔒  SSLYZE       - SSL/TLS Analysis [Pipeline & Standalone]
+   🕷️   NIKTO        - Web Scanning [Pipeline & Standalone]
+   📁  GOBUSTER     - Directory Scanning [Pipeline & Standalone]
+   🧪  NUCLEI       - Vulnerability Scanning [Pipeline & Standalone]
+   🕷️   FFUF         - Web Fuzzing [Pipeline & Standalone]
+   🗄️   SQLMAP       - SQL Injection [Pipeline & Standalone]
+   🔓  HYDRA        - Brute-Force [Standalone Only]
+   🔑  JOHN         - Password Cracking [Standalone Only]
+   🛜  AIRCRACK-NG  - Wireless Testing [Standalone Only]
+   💀  MSFVENOM     - Payload Generation [Standalone Only]
+   🔎  SEARCHSPLOIT - Vulnerability Search [Standalone Only]
+   🔍  CLAMAV       - Antivirus Scan [Standalone Only]
+   🦈  TSHARK       - Packet Analysis [Standalone Only]
+   ℹ️   INFO         - Information Matrix
+   ❌  EXIT         - Exit Application
+
 ```
 
 ## Workflow Example
