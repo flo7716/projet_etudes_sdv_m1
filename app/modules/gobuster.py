@@ -68,7 +68,10 @@ def run_gobuster(target: str, wordlist: str = "/usr/share/wordlists/dirbuster/di
     # Sanitize hostname/URL for filesystem storage directory creation
     clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
     # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp.
-    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP", datetime.now().strftime("%Y%m%d_%H%M%S"))
+    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
     
     # Compute persistent dynamic path format: results_hostname_timestamp/tool_output
     output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")

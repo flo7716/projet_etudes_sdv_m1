@@ -1,6 +1,7 @@
 # app/modules/report.py
 import os
 import re
+import json
 import subprocess
 import tempfile
 import shutil
@@ -187,15 +188,19 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                 target_host = clean_target
                 break
 
-    # 2. unique timestamp for the report generation to avoid overwriting previous reports
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # 3. Dynamic output path construction based on target host and timestamp
-    base_filename = os.path.basename(output_path) or "security_report.pdf"
+    # 2. Use existing local execution environment or create a persistent workflow directory
+    # Instead of creating a new timestamped folder blindly, we use a single clear consolidation folder
+    # or follow the provided path constraint if targeted directly.
+    # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp.
+    timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+    if not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
     new_results_dir = f"results_{target_host}_{timestamp}"
-    output_path = os.path.join(new_results_dir, base_filename)
-
-    # 4. Create a dedicated subdirectory for raw tool outputs
+    
+    # 3. Handle persistent dynamic path constraints and directories alignment
+    base_filename = os.path.basename(output_path) or "security_report.pdf"
+    output_pdf_path = os.path.join(new_results_dir, base_filename)
     raw_outputs_dir = os.path.join(new_results_dir, "tool_outputs")
 
     if isinstance(title, dict):
@@ -216,7 +221,7 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
     if TITLE_PLACEHOLDER in template:
         template = template.replace(TITLE_PLACEHOLDER, _escape_latex(clean_title))
 
-    # CRUCIAL : Creation of the results directory and raw outputs subdirectory before PDF generation
+    # Create the single unified results directory context to avoid duplicates
     os.makedirs(raw_outputs_dir, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as td:
@@ -232,48 +237,58 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
             if not os.path.exists(generated_pdf):
                 return {"error": "pdflatex compilation failed, report.pdf not found in tmp dir"}
 
-            # Moving the generated PDF to the desired output path, handling cross-device issues
+            # Move compiled PDF to our single structured destination
             try:
-                os.replace(generated_pdf, output_path)
+                os.replace(generated_pdf, output_pdf_path)
             except OSError as e:
                 if e.errno == errno.EXDEV:
-                    shutil.copy2(generated_pdf, output_path)
+                    shutil.copy2(generated_pdf, output_pdf_path)
                     os.remove(generated_pdf)
                 else:
                     raise
 
-            # --- EXPORTATION AND COPYING OF RAW TOOL OUTPUTS ---
-            # A. Capture and copy any existing nuclei raw output files to the raw_outputs_dir
-            for file_path in glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt"):
-                if os.path.exists(file_path):
+            # --- EXPORTATION AND CONSOLIDATION OF RAW TOOL OUTPUTS ---
+            # A. Recover existing persistent module outputs from standard local 'output/' path to prevent recreation loops
+            if os.path.exists("output"):
+                for local_file in glob.glob("output/*"):
+                    if os.path.isfile(local_file):
+                        try:
+                            shutil.copy2(local_file, os.path.join(raw_outputs_dir, os.path.basename(local_file)))
+                        except Exception:
+                            pass
+
+            # B. Capture independent global workspace raw files or tmp leaks (e.g. nuclei files)
+            for file_path in glob.glob("nuclei_*.txt") + glob.glob("/tmp/nuclei_*.txt") + glob.glob("gobuster_*.txt"):
+                if os.path.exists(file_path) and os.path.isfile(file_path):
                     try:
                         shutil.copy2(file_path, os.path.join(raw_outputs_dir, os.path.basename(file_path)))
                     except Exception:
                         pass
 
-            # B. Extract and save raw outputs from each tool's results dictionary to the raw_outputs_dir
+            # C. Export in-memory live active tool session logs directly if missing from file system
             for tool_name, data in results.items():
                 raw_content = data.get("raw_output") if isinstance(data, dict) else data
                 if raw_content:
                     txt_filename = f"{tool_name.lower()}_raw_output.txt"
                     txt_dest_path = os.path.join(raw_outputs_dir, txt_filename)
-                    try:
-                        with open(txt_dest_path, "w", encoding="utf-8", errors="replace") as txt_f:
-                            if isinstance(raw_content, (dict, list)):
-                                txt_f.write(json.dumps(raw_content, indent=2))
-                            else:
-                                txt_f.write(str(raw_content))
-                    except Exception:
-                        pass
+                    # Only write if it hasn't been copied yet from the local output file system to avoid conflicts
+                    if not os.path.exists(txt_dest_path):
+                        try:
+                            with open(txt_dest_path, "w", encoding="utf-8", errors="replace") as txt_f:
+                                if isinstance(raw_content, (dict, list)):
+                                    txt_f.write(json.dumps(raw_content, indent=2))
+                                else:
+                                    txt_f.write(str(raw_content))
+                        except Exception:
+                            pass
 
-            info = {"pdf_path": output_path, "results_directory": new_results_dir, "raw_outputs_directory": raw_outputs_dir}
+            info = {"pdf_path": output_pdf_path, "results_directory": new_results_dir, "raw_outputs_directory": raw_outputs_dir}
 
-            # If copy_to_host is True, attempt to copy the entire results directory to a host-mounted path
+            # Export/Mirror the entire clean consolidated directory to host destination if requested
             if copy_to_host:
                 actual_host_dest = os.path.join(host_dest, new_results_dir) if host_dest else None
                 if actual_host_dest:
                     try:
-                        # Recursive copy of the results directory to the specified host destination, handling existing directories
                         if os.path.exists(actual_host_dest):
                             shutil.rmtree(actual_host_dest)
                         shutil.copytree(new_results_dir, actual_host_dest)
@@ -281,7 +296,6 @@ def generate_pdf_report(results: Dict[str, Any], title: Any, output_path: str, c
                     except Exception as e:
                         info["copy_error"] = str(e)
                 else:
-                    # Fallback on host mount candidates if no specific host_dest is provided
                     for cand in _find_host_mount_candidates():
                         if not cand: continue
                         if _is_mount(cand) or os.path.exists(cand):

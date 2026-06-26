@@ -67,14 +67,17 @@ def run_nuclei(target: str, options: str = ""):
         # Sanitize hostname/URL for filesystem storage directory creation
         clean_hostname = re.sub(r'[^a-zA-Z0-9.\-]', '_', target.replace("http://", "").replace("https://", "").split('/')[0])
         # Check for environment variable override for timestamp before creating new one. If environment exists, use it; otherwise, generate a new timestamp.
-        timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP", datetime.now().strftime("%Y%m%d_%H%M%S"))
+        timestamp = os.environ.get("SWISSKNIFE_SCAN_TIMESTAMP")
+        if not timestamp:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            os.environ["SWISSKNIFE_SCAN_TIMESTAMP"] = timestamp
         
         # Compute persistent dynamic path format: results_hostname_timestamp/tool_outputs
         output_dir = os.path.join(f"results_{clean_hostname}_{timestamp}", "tool_outputs")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        persistent_output_path = os.path.join(output_dir, "nuclei.txt")
+        persistent_output_path = os.path.join(output_dir, "nuclei_raw_output.txt")
 
         if scan_results["raw_output"]:
             with open(persistent_output_path, "w", encoding="utf-8") as f:
