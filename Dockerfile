@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tshark \
     # --- FUZZING & ENUMERATION ---
     gobuster \
+    dirbuster \
     ffuf \
     nikto \
     # --- EXPLOITATION & BRUTE-FORCE ---
