@@ -189,7 +189,7 @@ def run_pipeline_interactive():
                 elif test == "sqlmap":
                     if "--batch" not in options:
                         options += " --batch"
-                    raw_result = run_sqlmap(target, options, interactive=False)
+                    raw_result = run_sqlmap(target, options)
                     results[test] = normalize_tool_result(test, raw_result, target)
 
                 console.print(f"[green]✓ {test.upper()} completed[/green]")
