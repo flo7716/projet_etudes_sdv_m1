@@ -72,7 +72,7 @@ def run_sqlmap(target: str, options: str = ""):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
-    persistent_path = os.path.join(output_dir, "sqlmap.txt")
+    persistent_path = os.path.join(output_dir, "sqlmap_raw_output.txt")
     with open(persistent_path, "w", encoding="utf-8") as f:
         f.write(scan_results["raw_output"])
 
